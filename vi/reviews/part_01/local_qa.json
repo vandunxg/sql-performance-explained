@@ -1,0 +1,61 @@
+{
+  "part_id": "part_01",
+  "rule_version": "1.0",
+  "source_unit_count": 50,
+  "translated_unit_count": 50,
+  "coverage_check": "PASS",
+  "code_integrity_check": "PASS",
+  "local_status": "LOCAL_QA_PASSED",
+  "boundary_status": "PENDING_NEXT_TRANSLATION",
+  "final_status": "PENDING_BOUNDARY",
+  "findings": [
+    {
+      "finding_id": "QA-001",
+      "severity": "MINOR",
+      "unit_id": "p01-u013",
+      "source_quote": "after working through the chapter you will already understand the phenomenon of slow indexes.",
+      "translated_quote": "sau khi học xong, bạn đã sẽ hiểu hiện tượng index chậm.",
+      "issue": "Cụm \"đã sẽ\" không đúng ngữ pháp tiếng Việt, làm câu đọc không tự nhiên.",
+      "proposed_fix": "sau khi học xong, bạn sẽ hiểu hiện tượng index chậm.",
+      "status": "FIXED"
+    },
+    {
+      "finding_id": "QA-002",
+      "severity": "MINOR",
+      "unit_id": "p01-u016",
+      "source_quote": "These tables are called Index-Organized Tables (IOT) in the Oracle database.",
+      "translated_quote": "các table này được gọi là Index-Organized Table (IOT).",
+      "issue": "Tên gọi số nhiều trong source bị chuyển thành số ít.",
+      "proposed_fix": "các table này được gọi là Index-Organized Tables (IOT).",
+      "status": "FIXED"
+    }
+  ],
+  "boundary_review": {
+    "previous_part_id": null,
+    "next_part_id": "part_02",
+    "referents_checked": [
+      {
+        "current_unit_id": "p01-u049",
+        "next_source_lines": "1-19",
+        "referent": "the primary-key lookup and its INDEX UNIQUE SCAN/TABLE ACCESS BY INDEX ROWID operations",
+        "result": "The opening source of part_02 continues the same execution-plan explanation without changing the referent or polarity."
+      }
+    ],
+    "terminology_conflicts": [],
+    "continuity_issues": [],
+    "result": "Current-to-next source continuity checked; complete boundary QA is pending because no part_02 translation exists."
+  },
+  "glossary_change_proposals": [],
+  "unresolved_questions": [],
+  "verified_automated_checks": [
+    "Parsed translation.json successfully as JSON.",
+    "Parsed local_qa.json successfully as JSON.",
+    "Confirmed 50 declared source_unit_ids, 50 translation entries, unique translation unit IDs, and identical declared/translated unit-ID order.",
+    "Confirmed all sql_code, execution_plan, table, and diagram units are verbatim source-to-target under the explicit user override."
+  ],
+  "verified_manual_checks": [
+    "Audited all 50 source-to-target unit mappings for completeness, semantic fidelity, technical correctness, and Vietnamese readability.",
+    "Read the final part_01 primary-key units with the opening source context of part_02.",
+    "Verified SQL, identifiers, execution plans, tables, diagrams, formulas, and numerical values under the explicit user override."
+  ]
+}

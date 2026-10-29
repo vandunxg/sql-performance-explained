@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chương 7 — Partial Results — SQL Performance Explained (VI)</title>
+<script>
+(function(){try{var t=localStorage.getItem("spe-theme");if(t&&t!=="auto")document.documentElement.setAttribute("data-theme",t);
+var s=parseFloat(localStorage.getItem("spe-scale"));if(s)document.documentElement.style.setProperty("--font-scale",s);}catch(e){}})();
+</script>
+<link rel="stylesheet" href="assets/css/book.css">
+<script src="assets/js/book.js" defer></script>
+</head>
+<body>
+<div class="progress"></div>
+<header class="topbar">
+  <button id="toc-toggle" type="button" aria-label="Mục lục chương">☰</button>
+  <a class="brand" href="index.html">SQL Performance Explained</a>
+  <span class="crumb">/ Chương 7 — Partial Results</span>
+  <span class="spacer"></span>
+  <span class="group"><button id="font-minus" type="button" aria-label="Giảm cỡ chữ">A−</button><button id="font-plus" type="button" aria-label="Tăng cỡ chữ">A+</button></span>
+  <button id="theme-btn" type="button" aria-label="Đổi giao diện">◐</button>
+</header>
+<div class="layout">
+<nav class="sidebar-toc" aria-label="Mục lục chương"><h2>Trong chương này</h2><ol><li class="l1"><a href="#p08-u047">Chương 7: Partial Results</a></li><li class="l2"><a href="#p08-u051">Querying Top-N Rows</a></li><li class="l2"><a href="#p08-u085">Paging Through Results</a></li><li class="l2"><a href="#p09-u002">Dùng Window Function cho Pagination</a></li></ol></nav>
+<main class="book"><div class="prose">
+<header class="chapter-head" id="p08-u047"><p class="eyebrow">Chương 7</p><h1>Partial Results</h1></header>
+<div class="para" id="p08-u049"><p>Đôi khi bạn không cần toàn bộ result của một SQL query mà chỉ cần vài row đầu tiên — chẳng hạn để chỉ hiển thị mười message mới nhất. Trong trường hợp này, người dùng cũng thường được phép browse các message cũ hơn — bằng paging navigation truyền thống hoặc biến thể hiện đại hơn là “infinite scrolling”. Tuy nhiên, các SQL query liên quan đến chức năng này có thể gây ra performance problem nghiêm trọng nếu phải sort toàn bộ message để tìm các message mới nhất. Vì vậy, pipelined <code class="kw">order by</code> là một phương pháp optimization rất mạnh cho các query như vậy.</p></div>
+<div class="para" id="p08-u050"><p>Chapter này trình bày cách dùng pipelined <code class="kw">order by</code> để retrieve partial result một cách hiệu quả. Dù syntax của các query này khác nhau giữa các database, chúng vẫn execute query theo cách rất giống nhau. Một lần nữa, điều này cho thấy tất cả chúng đều put their pants on one leg at a time.</p></div>
+<h2 id="p08-u051">Querying Top-N Rows<a class="anchor" href="#p08-u051" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p08-u052"><p>Top-N query là query giới hạn result ở một số row cụ thể. Đây thường là query lấy các entry mới nhất hoặc “tốt nhất” trong một result set. Để execute hiệu quả, việc ranking phải được thực hiện bằng pipelined <code class="kw">order by</code>.</p></div>
+<div class="para" id="p08-u053"><p>Cách đơn giản nhất để chỉ fetch các row đầu tiên của query là fetch các row cần thiết rồi đóng statement. Đáng tiếc là optimizer không thể dự đoán điều đó khi prepare execution plan. Để chọn execution plan tốt nhất, optimizer phải biết application cuối cùng sẽ fetch toàn bộ row hay không. Trong trường hợp đó, full table scan với explicit sort operation có thể perform tốt nhất, dù pipelined <code class="kw">order by</code> có thể tốt hơn khi chỉ fetch mười row — ngay cả khi database phải fetch từng row một. Nghĩa là optimizer phải biết bạn sẽ abort statement trước khi fetch toàn bộ row để có thể chọn execution plan tốt nhất.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Hãy thông báo cho database khi bạn không cần tất cả row.</p></aside>
+<div class="para" id="p08-u056"><p>SQL standard đã không yêu cầu điều này trong một thời gian dài. Extension tương ứng (fetch first) chỉ mới được giới thiệu trong SQL:2008 và hiện chỉ có trong <code class="id">IBM DB2</code>, PostgreSQL và SQL Server 2012. Một mặt, đó là vì feature này là non-core extension; mặt khác, mỗi database đã cung cấp giải pháp proprietary riêng trong nhiều năm.</p></div>
+<div class="para" id="p08-u057"><p>Các ví dụ sau cho thấy cách dùng những extension quen thuộc này bằng cách query mười sale mới nhất. Cơ sở luôn giống nhau: fetch toàn bộ sale, bắt đầu từ sale mới nhất. Top-N syntax tương ứng chỉ abort execution sau khi fetch mười row.</p></div>
+<h4 id="p08-u058">MySQL<a class="anchor" href="#p08-u058" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p08-u059"><p>MySQL và PostgreSQL dùng limit clause để giới hạn số row được fetch.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM sales
+ ORDER BY sale_date DESC
+ LIMIT 10;</code></pre></div>
+<h4 id="p08-u061">Oracle Database<a class="anchor" href="#p08-u061" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p08-u062"><p>Oracle database cung cấp pseudo column <code class="id">ROWNUM</code>, tự động đánh số các row trong result set. Để dùng column này trong một filter, chúng ta phải wrap query:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM (
+       SELECT *
+          FROM sales
+         ORDER BY sale_date DESC
+       )
+ WHERE rownum &lt;= 10;</code></pre></div>
+<h4 id="p08-u065">PostgreSQL<a class="anchor" href="#p08-u065" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p08-u066"><p>PostgreSQL hỗ trợ fetch first extension từ version 8.4. Limit clause được dùng trước đây vẫn hoạt động như trong ví dụ MySQL.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM sales
+ ORDER BY sale_date DESC
+ FETCH FIRST 10 ROWS ONLY;</code></pre></div>
+<h4 id="p08-u068">SQL Server<a class="anchor" href="#p08-u068" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p08-u069"><p>SQL Server cung cấp top clause để giới hạn số row được fetch.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT TOP 10 *
+  FROM sales
+ ORDER BY sale_date DESC;</code></pre></div>
+<div class="para" id="p08-u071"><p>Bắt đầu từ release 2012, SQL Server cũng hỗ trợ fetch first extension.</p></div>
+<div class="para" id="p08-u072"><p>Tất cả SQL query nêu trên đều đặc biệt vì database nhận diện chúng là top-N query.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Database chỉ có thể optimize query cho partial result nếu ngay từ đầu nó biết điều này.</p></aside>
+<div class="para" id="p08-u074"><p>Nếu optimizer biết rằng chúng ta chỉ cần mười row, nó sẽ ưu tiên dùng pipelined <code class="kw">order by</code> nếu phù hợp:</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>-------------------------------------------------------------
+| Operation                     | Name        | Rows | Cost |
+-------------------------------------------------------------
+| SELECT STATEMENT              |             |   10 |    9 |
+| COUNT STOPKEY                 |             |      |      |
+|   VIEW                        |             | 10 |      9 |
+|    TABLE ACCESS BY INDEX ROWID| SALES       | 1004K|    9 |
+|     INDEX FULL SCAN DESCENDING| SALES_DT_PR | 10 |      3 |
+-------------------------------------------------------------</code></pre></div>
+<div class="para" id="p08-u076"><p>Execution plan của Oracle cho biết termination đã được plan bằng operation <code class="id">COUNT STOPKEY</code>. Điều đó nghĩa là database đã nhận diện top-N syntax.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Appendix A, “Execution Plans”, tóm tắt các operation tương ứng cho MySQL, Oracle, PostgreSQL và SQL Server.</p></aside>
+<div class="para" id="p08-u079"><p>Dùng đúng syntax mới chỉ là một nửa câu chuyện vì để termination hiệu quả, các operation bên dưới cũng phải được execute theo pipelined manner. Nghĩa là <code class="kw">order by</code> clause phải được cover bởi một index — trong ví dụ này là index <code class="id">SALE_DT_PR</code> trên <code class="id">SALE_DATE</code> và <code class="id">PRODUCT_ID</code>. Khi dùng index này, database có thể tránh explicit sort operation và ngay lập tức gửi các row cho application khi đọc chúng từ index. Execution bị abort sau khi fetch mười row nên database không đọc nhiều row hơn số row được select.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Pipelined top-N query không cần đọc và sort toàn bộ result set.</p></aside>
+<div class="para" id="p08-u081"><p>Nếu không có index phù hợp trên <code class="id">SALE_DATE</code> cho pipelined <code class="kw">order by</code>, database phải đọc và sort toàn bộ table. Row đầu tiên chỉ được trả về sau khi đọc row cuối cùng từ table.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------
+| Operation               | Name | Rows | Cost |
+--------------------------------------------------
+| SELECT STATEMENT        |       |   10 | 59558 |
+| COUNT STOPKEY           |       |      |       |
+| VIEW                    |       | 1004K| 59558 |
+|    SORT ORDER BY STOPKEY|       | 1004K| 59558 |
+|     TABLE ACCESS FULL   | SALES | 1004K| 9246 |
+--------------------------------------------------</code></pre></div>
+<div class="para" id="p08-u083"><p>Execution plan này không có pipelined <code class="kw">order by</code> và gần như chậm tương đương với việc abort execution từ phía client. Dùng top-N syntax vẫn tốt hơn vì database không cần materialize toàn bộ result mà chỉ cần mười row mới nhất. Cách này cần ít memory hơn đáng kể. Execution plan của Oracle cho biết optimization này bằng modifier <code class="id">STOPKEY</code> trên operation <code class="id">SORT ORDER</code> BY.</p></div>
+<div class="para" id="p08-u084"><p>Các advantage của pipelined top-N query không chỉ là performance gain ngay lập tức mà còn là scalability tốt hơn. Nếu không dùng pipelined execution, response time của top-N query này tăng theo table size. Ngược lại, response time khi dùng pipelined execution chỉ tăng</p></div>
+<h2 id="p08-u085">Paging Through Results<a class="anchor" href="#p08-u085" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p08-u086"><p>theo số row được select. Nói cách khác, response time của pipelined top-N query luôn như nhau; nó gần như độc lập với table size. Chỉ khi B-tree depth tăng thì query mới chậm hơn một chút.</p></div>
+<div class="para" id="p08-u087"><p>Figure 7.1 cho thấy scalability của cả hai variant khi data volume tăng. Response time tăng tuyến tính đối với execution không có pipelined <code class="kw">order by</code> được thể hiện rất rõ. Response time của pipelined execution vẫn giữ nguyên.</p></div>
+<figure class="fig" id="fig-7-1"><figcaption>Figure 7.1. Scalability của Top-N Query</figcaption><div class="img-wrap"><img src="assets/img/p08-u089.png" alt="Figure 7.1. Scalability của Top-N Query" loading="lazy"></div></figure>
+<div class="para" id="p08-u090"><p>Dù response time của pipelined top-N query không phụ thuộc vào table size, nó vẫn tăng theo số row được select. Vì vậy response time sẽ tăng gấp đôi khi select số row nhiều gấp đôi. Điều này đặc biệt đáng chú ý với các query “paging” load thêm result vì các query này thường bắt đầu lại từ entry đầu tiên; chúng sẽ đọc các row đã hiển thị ở page trước rồi loại bỏ chúng trước khi cuối cùng tới được result của page thứ hai. Tuy nhiên, vấn đề này cũng có lời giải như chúng ta sẽ thấy trong section tiếp theo.</p></div>
+<div class="para" id="p08-u092"><p>Sau khi implement pipelined top-N query để retrieve page đầu tiên một cách hiệu quả, bạn thường cũng cần một query khác để fetch các page tiếp theo. Challenge phát sinh là query đó phải skip các row từ những page trước. Có hai method khác nhau để xử lý challenge này: thứ nhất là offset method, đánh số row từ đầu và dùng filter trên row number để loại bỏ các row trước page được yêu cầu. Method thứ hai, tôi gọi là seek method, tìm entry cuối cùng của page trước và chỉ fetch các row tiếp theo.</p></div>
+<div class="para" id="p08-u094"><p>Các ví dụ sau trình bày offset method được dùng phổ biến hơn. Advantage chính của nó là rất dễ xử lý — đặc biệt với các database có keyword riêng cho nó (offset). Keyword này thậm chí đã được đưa vào SQL standard như một phần của fetch first extension.</p></div>
+<h4 id="p08-u095">MySQL<a class="anchor" href="#p08-u095" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p08-u096"><p>MySQL và PostgreSQL cung cấp offset clause để loại bỏ số row được chỉ định từ đầu của một top-N query. Limit clause được áp dụng sau đó.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM sales
+ ORDER BY sale_date DESC
+ LIMIT 10 OFFSET 10;</code></pre></div>
+<h4 id="p08-u098">Oracle Database<a class="anchor" href="#p08-u098" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p08-u099"><p>Oracle database cung cấp pseudo column <code class="id">ROWNUM</code>, tự động đánh số row trong result set. Tuy nhiên, không thể áp dụng filter lớn hơn hoặc bằng (&gt;=) trên pseudo-column này. Để làm được điều đó, trước hết bạn phải “materialize” row number bằng cách đổi tên column với một alias.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM ( SELECT tmp.*, rownum rn
+           FROM ( SELECT *
+                    FROM sales
+                   ORDER BY sale_date DESC
+                ) tmp
+          WHERE rownum &lt;= 20
+       )
+ WHERE rn &gt; 10;</code></pre></div>
+<div class="para" id="p08-u101"><p>Lưu ý việc dùng alias RN cho lower bound và pseudo column <code class="id">ROWNUM</code> cho upper bound.</p></div>
+<h4 id="p08-u102">PostgreSQL<a class="anchor" href="#p08-u102" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p08-u103"><p>Fetch first extension cũng định nghĩa một offset ... rows clause. Tuy nhiên, PostgreSQL chỉ chấp nhận offset không có keyword rows. Syntax limit/offset được dùng trước đây vẫn hoạt động như trong ví dụ MySQL.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM sales
+ ORDER BY sale_date DESC
+OFFSET 10
+ FETCH NEXT 10 ROWS ONLY;</code></pre></div>
+<h4 id="p08-u106">SQL Server<a class="anchor" href="#p08-u106" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p08-u107"><p>SQL Server không có extension “offset” cho proprietary top clause của nó nhưng đã giới thiệu fetch first extension cùng SQL Server 2012 (“Denali”). Offset clause là bắt buộc dù standard định nghĩa nó là một optional addendum.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM sales
+ ORDER BY sale_date DESC
+OFFSET 10 ROWS
+ FETCH NEXT 10 ROWS ONLY;</code></pre></div>
+<div class="para" id="p08-u109"><p>Ngoài sự đơn giản, một advantage khác của method này là bạn chỉ cần row offset để fetch một page bất kỳ. Tuy nhiên, database phải count tất cả row từ đầu cho đến khi tới page được yêu cầu. Figure 7.2 cho thấy scanned index range lớn hơn khi fetch nhiều page hơn.</p></div>
+<figure class="fig" id="fig-7-2"><figcaption>Figure 7.2. Access Using the Offset Method</figcaption><div class="img-wrap"><img src="assets/img/p08-u111.png" alt="Figure 7.2. Access Using the Offset Method" loading="lazy"></div></figure>
+<div class="para" id="p08-u112"><p>Điều này có hai disadvantage: (1) các page bị drift khi <code class="kw">insert</code> sale mới vì việc đánh số luôn được thực hiện lại từ đầu; (2) response time tăng khi browse lùi về xa hơn.</p></div>
+<div class="para" id="p08-u113"><p>Seek method tránh được cả hai vấn đề vì nó dùng các value của page trước làm delimiter. Nghĩa là nó tìm các value phải nằm sau entry cuối cùng của page trước. Điều này có thể biểu diễn bằng một <code class="kw">where</code> clause đơn giản. Nói theo cách khác: seek method đơn giản là không select những value đã được hiển thị.</p></div>
+<div class="para" id="p08-u115"><p>Ví dụ tiếp theo trình bày seek method. Để minh họa, chúng ta giả sử mỗi ngày chỉ có một sale. Khi đó <code class="id">SALE_DATE</code> là một unique key. Để select những sale phải nằm sau một date cụ thể, bạn phải dùng điều kiện less than (&lt;) vì sort order là descending. Với ascending order, bạn phải dùng điều kiện greater than (&gt;). Fetch first clause chỉ được dùng để giới hạn result ở mười row.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM sales
+ WHERE sale_date &lt; ?
+ ORDER BY sale_date DESC
+ FETCH FIRST 10 ROWS ONLY;</code></pre></div>
+<div class="para" id="p08-u117"><p>Thay vì row number, bạn dùng value cuối cùng của page trước để chỉ định lower bound. Điều này mang lại benefit rất lớn về performance vì database có thể dùng condition <code class="id">SALE_DATE</code> &lt; ? để access index. Nghĩa là database thực sự có thể skip các row từ những page trước. Ngoài ra, bạn cũng nhận được result ổn định nếu có row mới được <code class="kw">insert</code>.</p></div>
+<div class="para" id="p08-u118"><p>Tuy nhiên, method này không hoạt động nếu mỗi ngày có nhiều hơn một sale — như trong Figure 7.2 — vì dùng date cuối cùng của page đầu tiên (“yesterday”) sẽ skip tất cả result của yesterday, không chỉ những result đã hiển thị trên page đầu. Vấn đề là <code class="kw">order by</code> clause không thiết lập một row sequence deterministic. Thế nhưng đó lại là prerequisite để dùng một range condition đơn giản cho page break.</p></div>
+<div class="para" id="p08-u119"><p>Nếu không có deterministic <code class="kw">order by</code> clause, theo định nghĩa database không trả về một row sequence deterministic. Lý do duy nhất khiến bạn thường nhận được một row sequence nhất quán là database thường execute query theo cùng một cách. Tuy nhiên, database thực tế có thể shuffle các row có cùng <code class="id">SALE_DATE</code> mà vẫn đáp ứng <code class="kw">order by</code> clause. Ở các release gần đây, bạn thực sự có thể nhận result theo order khác nhau mỗi lần chạy query, không phải vì database cố ý shuffle result mà vì database có thể sử dụng parallel query execution. Nghĩa là cùng một execution plan vẫn có thể tạo ra row sequence khác nhau vì các thread execute kết thúc theo một order không deterministic.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Paging yêu cầu một sort order deterministic.</p></aside>
+<div class="para" id="p08-u122"><p>Ngay cả khi functional specification chỉ yêu cầu sort “theo date, mới nhất trước”, developer vẫn phải bảo đảm <code class="kw">order by</code> clause tạo ra một row sequence deterministic. Vì mục đích này, có thể chúng ta cần mở rộng <code class="kw">order by</code> clause bằng các column bất kỳ chỉ để bảo đảm row sequence deterministic. Nếu index được dùng cho pipelined <code class="kw">order by</code> có thêm column, trước tiên nên thêm chúng vào <code class="kw">order by</code> clause để tiếp tục dùng index này cho pipelined <code class="kw">order by</code>. Nếu như vậy vẫn chưa tạo ra deterministic sort order, chỉ cần thêm một hoặc nhiều unique column và extend index tương ứng.</p></div>
+<div class="para" id="p08-u123"><p>Trong ví dụ sau, chúng ta mở rộng <code class="kw">order by</code> clause và index bằng primary key <code class="id">SALE_ID</code> để có một row sequence deterministic. Hơn nữa, chúng ta phải áp dụng logic “comes after” cho cả hai column cùng nhau để có result mong muốn:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX sl_dtid ON sales (sale_date, sale_id);
+SELECT *
+  FROM sales
+ WHERE (sale_date, sale_id) &lt; (?, ?)
+ ORDER BY sale_date DESC, sale_id DESC
+ FETCH FIRST 10 ROWS ONLY;</code></pre></div>
+<div class="para" id="p08-u125"><p>Where clause dùng syntax “row values” ít được biết đến (xem box có tiêu đề “SQL Row Values”). Syntax này kết hợp nhiều value thành một logical unit có thể áp dụng các comparison operator thông thường. Cũng như scalar value, điều kiện less-than tương ứng với “comes after” khi sort theo descending order. Nghĩa là query chỉ xét những sale nằm sau cặp <code class="id">SALE_DATE</code>, <code class="id">SALE_ID</code> được cung cấp.</p></div>
+<div class="para" id="p08-u126"><p>Dù row values syntax là một phần của SQL standard, chỉ có một vài database hỗ trợ nó. SQL Server 2012 (“Denali”) hoàn toàn không hỗ trợ row values. Oracle database về nguyên tắc có hỗ trợ row values, nhưng không thể áp dụng range operator trên chúng (<code class="id">ORA</code>-01796). MySQL evaluate row value expression chính xác nhưng không thể dùng chúng làm access predicate trong index access. Tuy nhiên, PostgreSQL hỗ trợ row value syntax và dùng chúng để access index nếu có index tương ứng.</p></div>
+<div class="para" id="p08-u128"><p>Tuy nhiên, vẫn có thể dùng một biến thể xấp xỉ của seek method với những database không hỗ trợ row values đúng cách — dù cách xấp xỉ này không elegant và hiệu quả bằng row values trong PostgreSQL. Với cách xấp xỉ này, chúng ta phải dùng các comparison “thông thường” để biểu diễn logic cần thiết như trong Oracle example sau:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM ( SELECT *
+           FROM sales
+          WHERE sale_date &lt;= ?
+            AND NOT (sale_date = ? AND sale_id &gt;= ?)
+          ORDER BY sale_date DESC, sale_id DESC
+       )
+ WHERE rownum &lt;= 10;</code></pre></div>
+<div class="para" id="p08-u130"><p>Where clause gồm hai phần. Phần thứ nhất chỉ xét <code class="id">SALE_DATE</code> và dùng điều kiện less than or equal to (&lt;=) — nó select nhiều row hơn mức cần thiết. Phần này đủ đơn giản để mọi database có thể dùng nó nhằm access index. Phần thứ hai loại bỏ các row dư đã được hiển thị trên page trước. Box có tiêu đề “Indexing Equivalent Logic” giải thích vì sao <code class="kw">where</code> clause được viết theo cách này.</p></div>
+<div class="para" id="p08-u131"><p>Execution plan cho thấy database dùng phần thứ nhất của <code class="kw">where</code> clause làm access predicate.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id | Operation                      | Name    | Rows | Cost |
+---------------------------------------------------------------
+| 0 | SELECT STATEMENT               |         |    10 |    4 |
+|*1 | COUNT STOPKEY                  |         |       |      |
+| 2 |   VIEW                         |         |    10 |    4 |
+| 3 |    TABLE ACCESS BY INDEX ROWID | SALES | 50218 |      4 |
+|*4 |     INDEX RANGE SCAN DESCENDING| SL_DTIT |     2 |    3 |
+---------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   1 - filter(ROWNUM&lt;=10)
+   4 - access("SALE_DATE"&lt;=:SALE_DATE)
+       filter("SALE_DATE"&lt;&gt;:SALE_DATE
+           OR "SALE_ID"&lt;TO_NUMBER(:SALE_ID))</code></pre></div>
+<div class="para" id="p08-u133"><p>Access predicate trên <code class="id">SALE_DATE</code> cho phép database skip những ngày đã được hiển thị đầy đủ ở các page trước. Phần thứ hai của <code class="kw">where</code> clause chỉ là filter predicate. Nghĩa là database inspect một vài entry từ page trước lần nữa, nhưng loại bỏ chúng ngay lập tức. Figure 7.3 cho thấy access path tương ứng.</p></div>
+<figure class="fig" id="fig-7-3"><figcaption>Figure 7.3. Access Using the Seek Method</figcaption><div class="img-wrap"><img src="assets/img/p08-u137.png" alt="Figure 7.3. Access Using the Seek Method" loading="lazy"></div></figure>
+<aside class="callout sidebar "><p class="title"><span>SQL Row Values</span></p><p>Ngoài scalar value thông thường, SQL standard còn định nghĩa row value constructor, tức là chúng “Specify an ordered set of values to be constructed into a row or partial row” [SQL:92, §7.1: &lt;row value constructor&gt;]. Về syntax, row value là các list trong dấu ngoặc. Syntax này được biết đến nhiều nhất khi dùng trong <code class="kw">insert</code> statement.</p>
+<p>Tuy nhiên, dùng row value constructor trong <code class="kw">where</code> clause ít phổ biến hơn nhưng hoàn toàn hợp lệ. SQL standard thực tế định nghĩa tất cả comparison operator cho row value constructor. Chẳng hạn, định nghĩa cho phép less than là như sau:</p>
+<p>"Rx &lt; Ry" is true if and only if RXi = RYi for all i &lt; n and</p>
+<p>RXn &lt; RYn for some n.</p>
+<p>—SQL:92, §8.2.7.2</p>
+<p>Trong đó i và n là các positional index trong list. Nghĩa là row value RX nhỏ hơn RY nếu bất kỳ value RXn nào nhỏ hơn RYn tương ứng và tất cả cặp value đứng trước đều bằng nhau (RXi = RYi; for i&lt;n).</p>
+<p>Định nghĩa này khiến expression RX &lt; RY đồng nghĩa với “RX sorts before RY”, chính là logic chúng ta cần cho seek method.</p></aside>
+<div class="para" id="p08-u140"><p>Figure 7.4 so sánh các đặc điểm performance của offset method và seek method. Độ chính xác của phép đo không đủ để nhìn thấy khác biệt ở phía bên trái của chart, nhưng khác biệt hiện rõ từ khoảng page 20 trở đi.</p></div>
+<figure class="fig" id="fig-7-4"><figcaption>Figure 7.4. Scalability khi Fetch Page Tiếp Theo</figcaption><div class="img-wrap"><img src="assets/img/p08-u142.png" alt="Figure 7.4. Scalability khi Fetch Page Tiếp Theo" loading="lazy"></div></figure>
+<div class="para" id="p08-u143"><p>Tất nhiên seek method cũng có drawback, trong đó khó xử lý là drawback quan trọng nhất. Bạn không chỉ phải viết <code class="kw">where</code> clause rất cẩn thận — bạn còn không thể fetch các page bất kỳ. Hơn nữa, để đổi direction browse, bạn phải đảo ngược tất cả comparison và sort operation. Chính hai chức năng này — skip page và browse ngược — không cần thiết khi dùng mechanism infinite scrolling cho user interface.</p></div>
+<aside class="callout sidebar "><p class="title"><span>Indexing Equivalent Logic</span></p><p>Một logical condition luôn có thể được biểu diễn theo nhiều cách khác nhau. Chẳng hạn, bạn cũng có thể implement logic skip ở trên như sau:</p></aside>
+<div class="code sql"><span class="label">SQL</span><pre><code>WHERE (
+              (sale_date &lt; ?)
+            OR
+              (sale_date = ? AND sale_id &lt; ?)
+        )</code></pre></div>
+<aside class="callout sidebar "><p class="title"><span>Biến thể này chỉ dùng các điều kiện bao hàm và có lẽ dễ hiểu hơn — ít nhất là với con người. Database có cách nhìn khác. Chúng không nhận ra rằng where clause select tất cả row bắt đầu từ cặp SALE_DATE/SALE_ID tương ứng — với điều kiện SALE_DATE giống nhau ở cả hai nhánh. Ít nhất chúng ta có thể kỳ vọng optimizer “factor condition SALE_DATE &lt;= ? out” khỏi hai nhánh OR, nhưng không database nào cung cấp service này.</span></p><p>Tuy vậy, chúng ta có thể tự thêm condition dư thừa này — dù nó không làm tăng readability:</p></aside>
+<div class="code sql"><span class="label">SQL</span><pre><code>WHERE sale_date &lt;= ?
+  AND (
+           (sale_date &lt; ?)
+        OR
+           (sale_date = ? AND sale_id &lt; ?)
+      )</code></pre></div>
+<aside class="callout sidebar "><p class="title"><span>May mắn là tất cả database đều có thể dùng phần này của where clause làm access predicate. Tuy nhiên, clause đó còn khó nắm bắt hơn cả logic xấp xỉ được trình bày ở trên. Hơn nữa, logic ban đầu tránh được rủi ro phần “không cần thiết” (dư thừa) vô tình bị xóa khỏi where clause về sau.</span></p></aside>
+<h2 id="p09-u002">Dùng Window Function cho Pagination<a class="anchor" href="#p09-u002" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p09-u003"><p>Window function cung cấp thêm một cách để implement pagination trong SQL.</p></div>
+<div class="para" id="p09-u004"><p>Đây là một method linh hoạt và trên hết là tuân thủ SQL standard. Tuy nhiên, chỉ SQL Server và Oracle database mới có thể dùng chúng cho pipelined top-N query. PostgreSQL không abort index scan sau khi fetch đủ row nên execute các query này rất kém hiệu quả. MySQL hoàn toàn không hỗ trợ window function.</p></div>
+<div class="para" id="p09-u005"><p>Ví dụ sau dùng window function <code class="id">ROW_NUMBER</code> cho một pagination query:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM ( SELECT sales.*
+              , ROW_NUMBER() OVER (ORDER BY sale_date DESC
+                                          , sale_id   DESC) rn
+           FROM sales
+       ) tmp
+ WHERE rn between 11 and 20
+ ORDER BY sale_date DESC, sale_id DESC;</code></pre></div>
+<div class="para" id="p09-u007"><p>Function <code class="id">ROW_NUMBER</code> đánh số các row theo sort order được định nghĩa trong over clause. Outer <code class="kw">where</code> clause dùng cách đánh số này để giới hạn result ở page thứ hai (row 11 đến 20).</p></div>
+<div class="para" id="p09-u008"><p>Oracle database nhận diện abort condition và dùng index trên <code class="id">SALE_DATE</code> và <code class="id">SALE_ID</code> để tạo behavior pipelined top-N:</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id | Operation                      | Name    | Rows | Cost |
+---------------------------------------------------------------
+| 0 | SELECT STATEMENT               |         | 1004K| 36877 |
+|*1 | VIEW                           |         | 1004K| 36877 |
+|*2 | WINDOW NOSORT STOPKEY          |         | 1004K| 36877 |
+| 3 |    TABLE ACCESS BY INDEX ROWID | SALES | 1004K| 36877 |
+| 4 |     INDEX FULL SCAN DESCENDING | SL_DTID | 1004K| 2955 |
+---------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+1 - filter("RN"&gt;=11 AND "RN"&lt;=20)
+2 - filter(ROW_NUMBER() OVER (
+           ORDER BY "SALE_DATE" DESC, "SALE_ID" DESC )&lt;=20)</code></pre></div>
+<div class="para" id="p09-u011"><p>Operation <code class="id">WINDOW NOSORT STOPKEY</code> cho biết không có sort operation (<code class="id">NOSORT</code>) và database abort execution khi đạt upper threshold (<code class="id">STOPKEY</code>). Vì các operation bị abort được execute theo pipelined manner, query này có hiệu quả tương đương offset method đã giải thích ở section trước.</p></div>
+<div class="para" id="p09-u012"><p>Tuy nhiên, strength của window function không nằm ở pagination mà ở analytical calculation. Nếu chưa từng dùng window function, bạn chắc chắn nên dành vài giờ để đọc documentation tương ứng.</p></div>
+</div>
+<nav class="pager"><a class="prev" href="chap_06.html"><small>← Trước</small>Chương 6 — Sorting và Grouping</a><a class="next" href="chap_08.html"><small>Sau →</small>Chương 8 — Modifying Data</a></nav>
+</main>
+</div>
+</body>
+</html>

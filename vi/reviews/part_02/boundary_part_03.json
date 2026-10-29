@@ -1,0 +1,24 @@
+{
+  "from_part_id": "part_02",
+  "to_part_id": "part_03",
+  "rule_version": "1.0",
+  "from_status_before": "PDF_QA_PASSED_PENDING_BOUNDARY",
+  "from_status_after": "FINALIZED",
+  "boundary_status": "PASS",
+  "units_reviewed": ["p02-u092", "p03-u001", "p03-u002", "p03-u003"],
+  "source_evidence": [
+    {"unit_id":"p02-u092","quote":"To make one index suffice, you should consistently use the same function throughout your application."},
+    {"unit_id":"p03-u001","quote":"Parameterized Queries"},
+    {"unit_id":"p03-u002","quote":"This section covers a topic that is skipped in most SQL textbooks: parameterized queries and bind parameters."},
+    {"unit_id":"p03-u003","quote":"Bind parameters— also called dynamic parameters or bind variables— are an alternative way to pass data to the database."}
+  ],
+  "checks": [
+    {"check":"referent_and_argument_continuity","result":"PASS","evidence":"Part 02 closes the function-based-indexing discussion; Part 03 explicitly opens a new section on parameterized queries, so no pronoun or unfinished causal chain crosses the boundary."},
+    {"check":"terminology_continuity","result":"PASS","evidence":"The opening retains database, SQL statement, query, bind parameter, and performance terminology without conflicting with Part 02 decisions."},
+    {"check":"polarity_and_modality","result":"PASS","evidence":"The opening preserves the source's explicit topic shift and does not manufacture a conclusion from the preceding over-indexing advice."},
+    {"check":"boundary_render_independence","result":"PASS","evidence":"The Part 03 HTML contains only p03 unit IDs; p02 context units are not duplicated in the draft or rendered PDF."}
+  ],
+  "findings": [],
+  "revision_required": false,
+  "next_boundary_status": "PENDING_NEXT_TRANSLATION"
+}

@@ -1,0 +1,26 @@
+{
+  "from_part_id": "part_09",
+  "to_part_id": "part_10",
+  "rule_version": "1.0",
+  "from_status_before": "DRAFT_PENDING_BOUNDARY",
+  "from_status_after": "FINALIZED",
+  "boundary_status": "PASS",
+  "units_reviewed": ["p09-u163", "p09-u164", "p09-u165", "p10-u001", "p10-u002", "p10-u003"],
+  "source_evidence": [
+    {"unit_id":"p09-u163","quote":"The efficiency of the top-N query depends on the execution mode of the underlying operations. It is very inefficient when aborting non-pipelined operations such as Sort."},
+    {"unit_id":"p09-u164","quote":"WindowAgg\nIndicates the use of window functions. See also “Using Window Functions for Pagination” on page 156."},
+    {"unit_id":"p09-u165","quote":"Caution\nPostgreSQL cannot execute pipelined top-N queries when using window functions."},
+    {"unit_id":"p10-u001","quote":"PostgreSQL Distinguishing Access and Filter-Predicates"},
+    {"unit_id":"p10-u002","quote":"Distinguishing Access and Filter-Predicates"},
+    {"unit_id":"p10-u003","quote":"The PostgreSQL database uses three different methods to apply where clauses (predicates):"}
+  ],
+  "checks": [
+    {"check":"referent_and_argument_continuity","result":"PASS","evidence":"Part 09 closes the PostgreSQL top-N/window-function subsection. Part 10 opens the next PostgreSQL appendix subsection as an explicit topic change, with no unresolved pronoun or duplicated prose."},
+    {"check":"terminology_continuity","result":"PASS","evidence":"PostgreSQL, execution plan, predicate and operation remain consistent; the new access predicate/filter predicate terminology is introduced directly by Part 10 source."},
+    {"check":"polarity_and_condition_changes","result":"PASS","evidence":"The Part 09 caution preserves the negative limitation on pipelined top-N queries, and Part 10 does not weaken or reinterpret it."},
+    {"check":"boundary_render_independence","result":"PASS","evidence":"Part 10 HTML and PDF contain only p10 unit IDs; Part 09 tail units were reviewed as context and are not duplicated in the Part 10 output."}
+  ],
+  "findings": [],
+  "revision_required": false,
+  "next_boundary_status": "NOT_APPLICABLE_BOOK_FINAL_PART"
+}

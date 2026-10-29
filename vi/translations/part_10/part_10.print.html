@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Giải thích SQL Performance - Phần 10</title>
+<style>
+@page { size: 148mm 228mm; margin: 17mm 15mm 18mm; }
+* { box-sizing: border-box; }
+body { color: #202124; font-family: "Noto Serif", serif; font-size: 10.2pt; line-height: 1.47; margin: 0; }
+p { margin: 0 0 0.75em; orphans: 3; widows: 3; }
+h2 { break-after: avoid; color: #254b66; font-family: "Noto Sans", sans-serif; font-size: 16pt; line-height: 1.2; margin: 1.65em 0 0.7em; }
+h3 { break-after: avoid; color: #254b66; font-family: "Noto Sans", sans-serif; font-size: 11.5pt; line-height: 1.25; margin: 1em 0 0.45em; }
+figure.source-clone-figure { break-inside: avoid; margin: 1em 0 1.25em; }
+img.source-clone { display: block; height: auto; max-width: 100%; }
+.callout-icon { float: left; height: 16pt; margin: 0.05em 0.55em 0.2em 0; width: 11pt; object-fit: contain; }
+aside { break-inside: avoid; border-left: 3pt solid #8b9d38; margin: 1.3em 0; padding: 0.35em 0 0.35em 1em; }
+aside.important, aside.caution, aside.warning { border-left-color: #a94a3d; }
+aside p:last-child { margin-bottom: 0; }
+.operation { break-inside: avoid; }
+</style>
+</head>
+<body>
+<h2 data-unit-id="p10-u001">PostgreSQL: Phân biệt Access Predicate và Filter Predicate</h2>
+<h2 data-unit-id="p10-u002">Phân biệt Access Predicate và Filter Predicate</h2>
+<section class="prose paragraph" data-unit-id="p10-u003"><p>Database PostgreSQL dùng ba method khác nhau để apply where clause (predicate):</p></section>
+<section class="operation" data-unit-id="p10-u004"><h3>Access Predicate (“Index Cond”)</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u005"><p>Access predicate thể hiện start và stop condition của leaf node traversal.</p></section>
+<section class="operation" data-unit-id="p10-u006"><h3>Index Filter Predicate (“Index Cond”)</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u007"><p>Index filter predicate chỉ được apply trong lúc leaf node traversal. Chúng không đóng góp vào start và stop condition, đồng thời không thu hẹp scanned range.</p></section>
+<section class="operation" data-unit-id="p10-u008"><h3>Table level filter predicate (“Filter”)</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u009"><p>Predicate trên các column không thuộc index được evaluate ở table level. Để làm vậy, database trước hết phải load row từ heap table.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u010"><p>PostgreSQL execution plan không hiển thị riêng index access predicate và index filter predicate — cả hai đều xuất hiện dưới dạng “Index Cond”. Vì vậy, phải đối chiếu execution plan với index definition để phân biệt access predicate và index filter predicate.</p></section>
+<aside class="note" data-unit-id="p10-u011"><img class="callout-icon" src="../../assets/part_08_image-000.png" alt=""><p>Note</p><p>PostgreSQL explain plan không cung cấp đủ thông tin để tìm index filter predicate.</p></aside>
+<section class="prose paragraph" data-unit-id="p10-u012"><p>Các predicate được hiển thị dưới dạng “Filter” luôn là table level filter predicate — kể cả khi chúng được hiển thị cho một Index Scan operation.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u013"><p>Hãy xem ví dụ sau, vốn xuất hiện lần đầu trong chapter “Performance and Scalability”:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u014" data-source-page="1" data-source-rect="55,510,300,75" src="../../assets/part_10_p10-u014.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u015"><p>Select sau filter trên column ID2, column không được đưa vào index:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u016" data-source-page="2" data-source-rect="42,100,327,150" src="../../assets/part_10_p10-u016.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u017"><p>Predicate ID2 xuất hiện dưới dạng &quot;Filter&quot; bên dưới Index Scan operation. Điều này là vì PostgreSQL thực hiện table access như một phần của Index Scan operation. Nói cách khác, operation TABLE ACCESS BY INDEX ROWID của Oracle database bị ẩn bên trong PostgreSQL’s Index Scan operation. Vì vậy, một Index Scan có thể filter trên các column không nằm trong index.</p></section>
+<aside class="important" data-unit-id="p10-u018"><img class="callout-icon" src="../../assets/part_08_image-000.png" alt=""><p>Important</p><p>PostgreSQL Filter predicate là table level filter predicate — kể cả khi được hiển thị cho một Index Scan.</p></aside>
+<section class="prose paragraph" data-unit-id="p10-u019"><p>Khi thêm index từ chapter “Performance and Scalability”, ta thấy tất cả column đều xuất hiện dưới dạng “Index Cond” — bất kể chúng là access predicate hay filter predicate.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u020" data-source-page="2" data-source-rect="42,445,330,35" src="../../assets/part_10_p10-u020.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u021"><p>Execution plan với index mới không hiển thị filter condition nào:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u022" data-source-page="2" data-source-rect="42,500,330,85" src="../../assets/part_10_p10-u022.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u023"><p>Lưu ý rằng condition trên ID2 không thể thu hẹp leaf node traversal vì index có column ID1 đứng trước ID2. Điều đó nghĩa là Index Scan sẽ scan toàn bộ range của condition SECTION=1::numeric và apply filter ID2=($1)::numeric trên từng row thỏa clause trên SECTION.</p></section>
+<h2 data-unit-id="p10-u024">SQL Server</h2>
+<section class="prose paragraph" data-unit-id="p10-u025"><p>Method được mô tả trong section này áp dụng cho SQL Server Management Studio 2005 trở lên.</p></section>
+<h2 data-unit-id="p10-u026">Getting an Execution Plan</h2>
+<section class="prose paragraph" data-unit-id="p10-u027"><p>Với SQL Server, có vài cách để lấy execution plan. Hai method quan trọng nhất là:</p></section>
+<section class="operation" data-unit-id="p10-u028"><h3>Graphically</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u029"><p>Biểu diễn dạng graphical của SQL Server execution plan dễ truy cập trong Management Studio nhưng khó chia sẻ, vì thông tin predicate chỉ hiển thị khi di chuột qua operation tương ứng (“hover”).</p></section>
+<section class="operation" data-unit-id="p10-u030"><h3>Tabular</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u031"><p>Execution plan dạng tabular khó đọc nhưng dễ copy vì hiển thị toàn bộ thông tin liên quan cùng lúc.</p></section>
+<section class="operation" data-unit-id="p10-u032"><h3>Graphically</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u033"><p>Graphical explain plan được tạo bằng một trong hai button được highlight bên dưới.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u034" data-source-page="4" data-source-rect="60,470,290,30" src="../../assets/part_10_p10-u034.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u035"><p>Button bên trái explain statement đang được highlight trực tiếp. Button bên phải sẽ capture plan vào lần tiếp theo một SQL statement được execute.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u036"><p>Trong cả hai trường hợp, graphical representation của execution plan xuất hiện trong tab “Execution plan” của pane “Results”.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u037" data-source-page="5" data-source-rect="80,45,300,120" src="../../assets/part_10_p10-u037.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u038"><p>Graphical representation khá dễ đọc sau một chút thực hành. Tuy nhiên, nó chỉ hiển thị thông tin cơ bản nhất: các operation và table hoặc index mà chúng tác động lên.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u039"><p>Management Studio hiển thị thêm thông tin khi di chuột qua một operation (mouseover/hover). Điều này khiến việc chia sẻ execution plan với đầy đủ chi tiết trở nên khó khăn.</p></section>
+<section class="operation" data-unit-id="p10-u040"><h3>Tabular</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u041"><p>Biểu diễn dạng tabular của SQL Server execution plan được lấy bằng cách profile việc execute một statement. Command sau bật chế độ đó:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u042" data-source-page="5" data-source-rect="55,330,320,30" src="../../assets/part_10_p10-u042.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u043"><p>Sau khi bật, mỗi statement được execute sẽ tạo thêm một result set. Chẳng hạn, select statement tạo ra hai result set — trước tiên là result của statement, sau đó là execution plan.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u044"><p>Execution plan dạng tabular hầu như không dùng được trong SQL Server Management Studio vì StmtText quá rộng để vừa màn hình.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u045" data-source-page="5" data-source-rect="60,450,340,145" src="../../assets/part_10_p10-u045.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u046"><p>Ưu điểm của cách biểu diễn này là có thể copy mà không làm mất thông tin quan trọng. Điều này rất tiện nếu bạn muốn đăng SQL Server execution plan lên forum hoặc nền tảng tương tự. Trong trường hợp đó, thường chỉ cần copy column StmtText rồi format lại một chút:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u047" data-source-page="6" data-source-rect="45,125,330,55" src="../../assets/part_10_p10-u047.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u048"><p>Cuối cùng, bạn có thể tắt profiling lại:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u049" data-source-page="6" data-source-rect="45,205,170,25" src="../../assets/part_10_p10-u049.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p10-u050">Operations</h2>
+<h2 data-unit-id="p10-u051">Index and Table Access</h2>
+<section class="prose paragraph" data-unit-id="p10-u052"><p>SQL Server có terminology đơn giản: operation “Scan” đọc toàn bộ index hoặc table, còn operation “Seek” dùng B-tree hoặc physical address (RID, giống Oracle ROWID) để truy cập một phần cụ thể của index hoặc table.</p></section>
+<section class="operation" data-unit-id="p10-u053"><h3>Index Seek</h3><p>Index Seek thực hiện B-tree traversal và đi qua các leaf node để tìm mọi matching entry. Xem thêm “Anatomy of an Index” ở page 1.</p></section>
+<section class="operation" data-unit-id="p10-u054"><h3>Index Scan</h3><p>Đọc toàn bộ index — tất cả row — theo index order. Tùy system statistics, database có thể thực hiện operation này nếu cần mọi row theo index order — chẳng hạn vì có order by clause tương ứng.</p></section>
+<section class="operation" data-unit-id="p10-u055"><h3>Key Lookup (Clustered)</h3><p>Retrieve một row từ clustered index. Operation này tương tự Oracle INDEX UNIQUE SCAN cho một Index-Organized-Table (IOT). Xem thêm “Clustering Data” ở page 111.</p></section>
+<section class="operation" data-unit-id="p10-u056"><h3>RID Lookup (Heap)</h3><p>Retrieve một row từ table — giống Oracle TABLE ACCESS BY INDEX ROWID. Xem thêm “Anatomy of an Index” ở page 1.</p></section>
+<section class="operation" data-unit-id="p10-u057"><h3>Table Scan</h3><p>Còn được gọi là full table scan. Đọc toàn bộ table — tất cả row và column — theo cách chúng được lưu trên disk. Dù multi-block read operation có thể cải thiện đáng kể tốc độ Table Scan, đây vẫn là một trong những operation tốn kém nhất. Ngoài IO rate cao, Table Scan còn phải kiểm tra mọi table row nên có thể tiêu tốn nhiều CPU time. Xem thêm “Full Table Scan” ở page 13.</p></section>
+<h2 data-unit-id="p10-u058">Join Operations</h2>
+<section class="prose paragraph" data-unit-id="p10-u059"><p>Nhìn chung, join operation chỉ xử lý hai table mỗi lần. Nếu query có nhiều join hơn, chúng được execute tuần tự: trước tiên là hai table, sau đó là intermediate result với table tiếp theo. Trong ngữ cảnh join, từ “table” vì vậy cũng có thể có nghĩa là “intermediate result”.</p></section>
+<section class="operation" data-unit-id="p10-u060"><h3>Nested Loops</h3><p>Join hai table bằng cách lấy result từ một table rồi query table còn lại cho từng row của table thứ nhất. SQL Server cũng dùng nested loops operation để retrieve table data sau một index access. Xem thêm “Nested Loops” ở page 92.</p></section>
+<section class="operation" data-unit-id="p10-u061"><h3>Hash Match</h3><p>Hash match join load các candidate record từ một phía của join vào hash table, sau đó probe hash table cho từng row từ phía còn lại của join. Xem thêm “Hash Join” ở page 101.</p></section>
+<section class="operation" data-unit-id="p10-u062"><h3>Merge Join</h3><p>Merge join kết hợp hai sorted list như một zipper. Cả hai phía của join phải được presort. Xem thêm “Sort Merge” ở page 109.</p></section>
+<h2 data-unit-id="p10-u063">Sorting and Grouping</h2>
+<section class="operation" data-unit-id="p10-u064"><h3>Sort</h3><p>Sort result theo order by clause. Operation này cần lượng memory lớn để materialize intermediate result (không pipelined). Xem thêm “Indexing Order By” ở page 130.</p></section>
+<section class="operation" data-unit-id="p10-u065"><h3>Sort (Top N Sort)</h3><p>Sort một subset của result theo order by clause. Dùng cho top-N query nếu pipelined execution không thể thực hiện. Xem thêm “Querying Top-N Rows” ở page 143.</p></section>
+<section class="operation" data-unit-id="p10-u066"><h3>Stream Aggregate</h3><p>Aggregate một presorted set theo group by clause. Operation này không buffer intermediate result — nó được execute theo pipelined manner. Xem thêm “Indexing Group By” ở page 139.</p></section>
+<section class="operation" data-unit-id="p10-u067"><h3>Hash Match (Aggregate)</h3><p>Group result bằng hash table. Operation này cần lượng memory lớn để materialize intermediate result (không pipelined). Output không được order theo cách có ý nghĩa nào. Xem thêm “Indexing Group By” ở page 139.</p></section>
+<h2 data-unit-id="p10-u068">Top-N Queries</h2>
+<section class="operation" data-unit-id="p10-u069"><h3>Top</h3><p>Abort các operation bên dưới khi đã fetch đủ số row mong muốn. Xem thêm “Querying Top-N Rows” ở page 143.</p><p>&nbsp;</p><p>Hiệu quả của top-N query phụ thuộc vào execution mode của các operation bên dưới. Nó rất kém hiệu quả khi abort các non-pipelined operation như Sort.</p></section>
+<h2 data-unit-id="p10-u070">Distinguishing Access and Filter-Predicates</h2>
+<section class="prose paragraph" data-unit-id="p10-u071"><p>Database SQL Server dùng ba method khác nhau để apply where clause (predicate):</p></section>
+<section class="operation" data-unit-id="p10-u072"><h3>Access Predicate (“Seek Predicates”)</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u073"><p>Access predicate thể hiện start và stop condition của leaf node traversal.</p></section>
+<section class="operation" data-unit-id="p10-u074"><h3>Index Filter Predicate (“Predicates” hoặc “where” cho index operation)</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u075"><p>Index filter predicate chỉ được apply trong lúc leaf node traversal. Chúng không đóng góp vào start và stop condition, đồng thời không thu hẹp scanned range.</p></section>
+<section class="operation" data-unit-id="p10-u076"><h3>Table level filter predicate (“where” cho table operation)</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u077"><p>Predicate trên các column không thuộc index được evaluate ở table level. Để làm vậy, database trước hết phải load row từ heap table.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u078"><p>Section sau giải thích cách nhận diện filter predicate trong SQL Server execution plan. Nội dung dựa trên sample dùng để minh họa tác động của index filter predicate trong Chapter 3.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u079" data-source-page="9" data-source-rect="55,378,300,85" src="../../assets/part_10_p10-u079.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u080"><p>Sample statement select theo SECTION và ID2:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u081" data-source-page="9" data-source-rect="55,488,180,55" src="../../assets/part_10_p10-u081.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p10-u082">In Graphical Execution Plans</h2>
+<section class="prose paragraph" data-unit-id="p10-u083"><p>Graphical execution plan ẩn thông tin predicate trong một tooltip chỉ xuất hiện khi di chuột qua Index Seek operation.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u084" data-source-page="10" data-source-rect="40,145,345,260" src="../../assets/part_10_p10-u084.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u085"><p>Seek Predicates của SQL Server tương ứng với access predicate của Oracle — chúng thu hẹp leaf node traversal. Filter predicate chỉ được gắn nhãn là Predicates trong graphical execution plan của SQL Server.</p></section>
+<h2 data-unit-id="p10-u086">In Tabular Execution Plans</h2>
+<section class="prose paragraph" data-unit-id="p10-u087"><p>Tabular execution plan có thông tin predicate trong cùng column với nơi các operation xuất hiện. Vì vậy, rất dễ copy và paste toàn bộ thông tin liên quan trong một lần.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u088" data-source-page="11" data-source-rect="60,165,140,120" src="../../assets/part_10_p10-u088.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u089"><p>Execution plan xuất hiện dưới dạng result set thứ hai trong results pane. Sau đây là column StmtText — đã format lại một chút để dễ đọc:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u090" data-source-page="11" data-source-rect="60,335,300,75" src="../../assets/part_10_p10-u090.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u091"><p>Nhãn SEEK mở đầu cho access predicate, còn nhãn WHERE đánh dấu filter predicate.</p></section>
+<h2 data-unit-id="p10-u092">MySQL</h2>
+<section class="prose paragraph" data-unit-id="p10-u093"><p>Method được mô tả trong section này áp dụng cho mọi version của MySQL.</p></section>
+<h2 data-unit-id="p10-u094">Getting an Execution Plan</h2>
+<section class="prose paragraph" data-unit-id="p10-u095"><p>Đặt explain trước một SQL statement để lấy execution plan.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u096" data-source-page="12" data-source-rect="48,207,100,25" src="../../assets/part_10_p10-u096.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u097"><p>Plan được hiển thị dưới dạng tabular (đã bỏ một số column ít quan trọng):</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u098" data-source-page="12" data-source-rect="48,260,315,65" src="../../assets/part_10_p10-u098.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u099"><p>Thông tin quan trọng nhất nằm trong column TYPE. Dù tài liệu MySQL gọi đây là “join type”, tôi thích gọi nó là “access type” hơn vì thực tế nó chỉ cách data được truy cập. Ý nghĩa của từng type value được mô tả trong section tiếp theo.</p></section>
+<h2 data-unit-id="p10-u100">Operations</h2>
+<h2 data-unit-id="p10-u101">Index and Table Access</h2>
+<section class="prose paragraph" data-unit-id="p10-u102"><p>Explain plan của MySQL dễ tạo cảm giác an toàn giả vì nói rất nhiều về việc index được sử dụng. Dù đúng về mặt kỹ thuật, điều đó không có nghĩa là index đang được dùng hiệu quả. Thông tin quan trọng nhất nằm trong column TYPE của MySQL explain output — nhưng ngay cả keyword INDEX ở đó cũng không cho biết việc indexing có đúng hay không.</p></section>
+<section class="operation" data-unit-id="p10-u103"><h3>eq_ref</h3><p>Chỉ thực hiện B-tree traversal. Database dùng operation này khi primary key hoặc unique constraint bảo đảm search criteria match không quá một entry. Xem thêm “Anatomy of an Index” ở page 1.</p></section>
+<section class="operation" data-unit-id="p10-u104"><h3>ref, range</h3><p>Thực hiện B-tree traversal và đi qua leaf node để tìm mọi matching entry (tương tự INDEX RANGE SCAN). Xem thêm “Anatomy of an Index” ở page 1.</p></section>
+<section class="operation" data-unit-id="p10-u105"><h3>index</h3><p>Đọc toàn bộ index — tất cả row — theo index order (tương tự INDEX FULL SCAN).</p></section>
+<section class="operation" data-unit-id="p10-u106"><h3>ALL</h3><p>Đọc toàn bộ table — tất cả row và column — theo cách chúng được lưu trên disk. Ngoài IO rate cao, table scan còn phải kiểm tra mọi row trong table nên có thể tạo tải CPU đáng kể. Xem thêm “Full Table Scan” ở page 13.</p></section>
+<section class="operation" data-unit-id="p10-u107"><h3>Using Index (trong column “Extra”)</h3><p>Khi column “Extra” hiển thị “Using Index”, nghĩa là table không được access vì index có toàn bộ data cần thiết. Hãy nghĩ đến “using index ONLY”. Xem thêm “Clustering Data” ở page 111.</p></section>
+<section class="operation" data-unit-id="p10-u108"><h3>PRIMARY (trong column “key” hoặc “possible_keys”)</h3><p>PRIMARY là tên của index được tự động tạo cho primary key.</p></section>
+<h2 data-unit-id="p10-u109">Sorting and Grouping</h2>
+<section class="operation" data-unit-id="p10-u110"><h3>using filesort (trong column “Extra”)</h3><p>“using filesort” trong column Extra cho biết có explicit sort operation — bất kể sort diễn ra ở đâu (main memory hay disk). “Using filesort” cần lượng memory lớn để materialize intermediate result (không pipelined). Xem thêm “Indexing Order By” ở page 130.</p></section>
+<h2 data-unit-id="p10-u111">Top-N Queries</h2>
+<section class="operation" data-unit-id="p10-u112"><h3>implicit: không có “using filesort” trong column “Extra”</h3><p>MySQL execution plan không hiển thị top-N query một cách rõ ràng. Nếu dùng limit syntax mà không thấy “using filesort” trong extra column, query được execute theo pipelined manner. Xem thêm “Querying Top-N Rows” ở page 143.</p></section>
+<h2 data-unit-id="p10-u113">Distinguishing Access and Filter-Predicates</h2>
+<section class="prose paragraph" data-unit-id="p10-u114"><p>Database MySQL dùng ba cách khác nhau để evaluate where clause (predicate):</p></section>
+<section class="operation" data-unit-id="p10-u115"><h3>Access predicate (thông qua column “key_len”)</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u116"><p>Access predicate thể hiện start và stop condition của leaf node traversal.</p></section>
+<section class="operation" data-unit-id="p10-u117"><h3>Index filter predicate (“Using index condition”, từ MySQL 5.6)</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u118"><p>Index filter predicate chỉ được apply trong lúc leaf node traversal. Chúng không đóng góp vào start và stop condition, đồng thời không thu hẹp scanned range.</p></section>
+<section class="operation" data-unit-id="p10-u119"><h3>Table level filter predicate (“Using where” trong column “Extra”)</h3><p>&nbsp;</p></section>
+<section class="prose paragraph" data-unit-id="p10-u120"><p>Predicate trên các column không thuộc index được evaluate ở table level. Để làm vậy, database trước hết phải load row từ table.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u121"><p>MySQL execution plan không cho biết condition nào dùng loại predicate nào — chúng chỉ liệt kê các loại predicate đang được sử dụng.</p></section>
+<h2 data-unit-id="p10-u122">MySQL: Phân biệt Access và Filter Predicate</h2>
+<section class="prose paragraph" data-unit-id="p10-u123"><p>Trong ví dụ sau, toàn bộ where clause được dùng làm access predicate:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u124" data-source-page="15" data-source-rect="55,92,235,245" src="../../assets/part_10_p10-u124.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u125"><p>Trong column “Extra” không hiển thị “Using where” hoặc “Using index condition”. Tuy nhiên, index đã được sử dụng (type=ref, key=demo_idx), vì vậy có thể giả định toàn bộ where clause đủ điều kiện làm access predicate.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u126"><p>Có thể dùng key_len value để kiểm tra điều này. Nó cho biết query sử dụng 12 byte đầu tiên của index definition. Để map giá trị này với tên column, bạn “chỉ” cần biết mỗi column cần bao nhiêu storage space (xem “Data Type Storage Requirements” trong tài liệu MySQL). Khi không có NOT NULL constraint, MySQL cần thêm một byte cho mỗi column. Sau cùng, mỗi NUMERIC column trong ví dụ cần 6 byte. Vì vậy, key length bằng 12 xác nhận hai index column đầu tiên được dùng làm access predicate.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u127"><p>Khi filter bằng column ID3 (thay vì ID2), MySQL 5.6 trở lên dùng index filter predicate (“Using index condition”):</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u128" data-source-page="16" data-source-rect="45,102,305,120" src="../../assets/part_10_p10-u128.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p10-u129"><p>Trong trường hợp này, key length bằng six nghĩa là chỉ một column được dùng làm access predicate.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u130"><p>Các version MySQL trước đây dùng table level filter predicate cho query này — được nhận diện bởi “Using where” trong column “Extra”:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u131" data-source-page="16" data-source-rect="45,292,255,65" src="../../assets/part_10_p10-u131.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u132" data-source-page="17" data-source-rect="0,0,425.196,651.968" src="../../assets/part_10_p10-u132.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u133" data-source-page="18" data-source-rect="0,0,425.196,651.968" src="../../assets/part_10_p10-u133.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u134" data-source-page="19" data-source-rect="0,0,425.196,651.968" src="../../assets/part_10_p10-u134.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p10-u135">SQL Performance Explained! — Giờ thì sao?</h2>
+<section class="prose paragraph" data-unit-id="p10-u136"><p>Có thể bạn vẫn còn câu hỏi hoặc gặp một vấn đề rất cụ thể mà “SQL Performance Explained” chưa trả lời thỏa đáng? Instant Coaching là giải pháp cho bạn.</p></section>
+<h2 data-unit-id="p10-u137">Instant Coaching</h2>
+<section class="prose paragraph" data-unit-id="p10-u138"><p>Instant Coaching là cách nhanh, dễ và không phiền phức để developer giải quyết các vấn đề khó về SQL database performance thông qua desktop sharing.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u139"><p>Instant Coaching không dùng các ví dụ dựng sẵn; các case thực tế được trình bày vì đó là cách tối ưu để hỗ trợ bạn giải quyết vấn đề hiện tại với SQL database chậm. Instant Coaching độc lập với vendor, hiệu quả… và có mức giá rất hợp lý!</p></section>
+<h2 data-unit-id="p10-u140">Hãy thử ngay!</h2>
+<section class="prose paragraph" data-unit-id="p10-u141"><p>Đây là lúc tìm hiểu thêm về Instant Coaching! Hãy truy cập website của chúng tôi để biết thêm thông tin:</p></section>
+<section class="prose paragraph" data-unit-id="p10-u142"><p>http://winand.at</p></section>
+<h2 data-unit-id="p10-u143">SQL Performance Explained</h2>
+<section class="prose paragraph" data-unit-id="p10-u144"><p>SQL Performance Explained giúp developer cải thiện database performance. Trọng tâm là SQL — bao quát mọi SQL database chính mà không sa đà vào chi tiết của một product cụ thể nào.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u145"><p>Bắt đầu từ nền tảng về indexing và where clause, SQL Performance Explained dẫn developer đi qua mọi thành phần của một SQL statement và giải thích các vấn đề thường gặp của object-relational mapping (ORM) tool như Hibernate.</p></section>
+<h2 data-unit-id="p10-u146">Các chủ đề được đề cập gồm:</h2>
+<section class="prose list_item" data-unit-id="p10-u147"><p>» Sử dụng multi-column index</p></section>
+<section class="prose list_item" data-unit-id="p10-u148"><p>» Áp dụng SQL function đúng cách</p></section>
+<section class="prose list_item" data-unit-id="p10-u149"><p>» Sử dụng LIKE query hiệu quả</p></section>
+<section class="prose list_item" data-unit-id="p10-u150"><p>» Tối ưu join operation</p></section>
+<section class="prose list_item" data-unit-id="p10-u151"><p>» Clustering data để cải thiện performance</p></section>
+<section class="prose list_item" data-unit-id="p10-u152"><p>» Pipelined execution của order by và group by</p></section>
+<section class="prose list_item" data-unit-id="p10-u153"><p>» Đạt performance tốt nhất cho pagination query</p></section>
+<section class="prose list_item" data-unit-id="p10-u154"><p>» Hiểu khả năng scalability của database</p></section>
+<section class="prose paragraph" data-unit-id="p10-u155"><p>Cấu trúc có hệ thống khiến SQL Performance Explained vừa là textbook vừa là reference manual mà mọi developer nên có trên bookshelf.</p></section>
+<h2 data-unit-id="p10-u156">Bao quát</h2>
+<section class="prose paragraph" data-unit-id="p10-u157"><p>Oracle® Database · SQL Server® · MySQL · PostgreSQL</p></section>
+<h2 data-unit-id="p10-u158">Về Markus Winand</h2>
+<section class="prose paragraph" data-unit-id="p10-u159"><p>Markus Winand đã phát triển SQL application từ năm 1998. Mối quan tâm chính của ông gồm performance, scalability, reliability và nói chung là mọi khía cạnh kỹ thuật khác của software quality. Hiện Markus làm trainer và coach độc lập tại Vienna, Austria.</p></section>
+<section class="prose paragraph" data-unit-id="p10-u160"><p>http://winand.at/</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p10-u161" data-source-page="21" data-source-rect="230,520,165,85" src="../../assets/part_10_p10-u161.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+</body>
+</html>

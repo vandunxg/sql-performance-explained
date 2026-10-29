@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chương 5 — Clustering Data — SQL Performance Explained (VI)</title>
+<script>
+(function(){try{var t=localStorage.getItem("spe-theme");if(t&&t!=="auto")document.documentElement.setAttribute("data-theme",t);
+var s=parseFloat(localStorage.getItem("spe-scale"));if(s)document.documentElement.style.setProperty("--font-scale",s);}catch(e){}})();
+</script>
+<link rel="stylesheet" href="assets/css/book.css">
+<script src="assets/js/book.js" defer></script>
+</head>
+<body>
+<div class="progress"></div>
+<header class="topbar">
+  <button id="toc-toggle" type="button" aria-label="Mục lục chương">☰</button>
+  <a class="brand" href="index.html">SQL Performance Explained</a>
+  <span class="crumb">/ Chương 5 — Clustering Data</span>
+  <span class="spacer"></span>
+  <span class="group"><button id="font-minus" type="button" aria-label="Giảm cỡ chữ">A−</button><button id="font-plus" type="button" aria-label="Tăng cỡ chữ">A+</button></span>
+  <button id="theme-btn" type="button" aria-label="Đổi giao diện">◐</button>
+</header>
+<div class="layout">
+<nav class="sidebar-toc" aria-label="Mục lục chương"><h2>Trong chương này</h2><ol><li class="l1"><a href="#p06-u137">Chương 5: Clustering Data</a></li><li class="l2"><a href="#p06-u139">The Second Power of Indexing</a></li><li class="l2"><a href="#p06-u149">Index Filter Predicates Used Intentionally</a></li><li class="l2"><a href="#p07-u008">Index-Only Scan</a></li><li class="l2"><a href="#p07-u058">Index-Organized Tables</a></li></ol></nav>
+<main class="book"><div class="prose">
+<header class="chapter-head" id="p06-u137"><p class="eyebrow">Chương 5</p><h1>Clustering Data</h1></header>
+<h2 id="p06-u139">The Second Power of Indexing<a class="anchor" href="#p06-u139" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p06-u140"><p>Thuật ngữ cluster được dùng trong nhiều lĩnh vực. Chẳng hạn, star cluster là một nhóm ngôi sao. Computer cluster lại là một nhóm computer làm việc chặt chẽ với nhau — để giải quyết một bài toán phức tạp (high-performance computing cluster) hoặc tăng availability (failover cluster). Nói chung, cluster là những thứ có liên quan và xuất hiện cùng nhau.</p></div>
+<div class="para" id="p06-u141"><p>Trong computing còn có một loại cluster khác — loại thường bị hiểu sai: data cluster. Clustering data nghĩa là lưu những data được access liên tiếp ở gần nhau để việc access cần ít IO operation hơn. Data cluster rất quan trọng đối với database tuning. Computer cluster cũng rất phổ biến trong ngữ cảnh database — khiến thuật ngữ cluster trở nên mơ hồ. Câu “Let’s use a cluster to improve database performance” là một ví dụ; nó có thể nói đến computer cluster nhưng cũng có thể nghĩa là data cluster. Trong chapter này, cluster nói chung sẽ chỉ data cluster.</p></div>
+<div class="para" id="p06-u142"><p>Data cluster đơn giản nhất trong SQL database là row. Database lưu tất cả column của một row trong cùng database block nếu có thể. Có ngoại lệ nếu row không vừa trong một block — ví dụ khi có <code class="id">LOB</code> type.</p></div>
+<h4 id="p06-u143">Column Stores<a class="anchor" href="#p06-u143" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p06-u144"><p>Các database dạng column-oriented, hay column-store, tổ chức table theo column. Model này có lợi khi access nhiều row nhưng chỉ một vài column — một pattern rất phổ biến trong data warehouse (<code class="id">OLAP</code>).</p></div>
+<div class="para" id="p06-u146"><p>Index cho phép cluster data. Cơ sở của điều này đã được giải thích trong Chapter 1, “Anatomy of an Index”: index leaf node lưu indexed column theo thứ tự, nên các value tương tự được lưu cạnh nhau. Điều đó có nghĩa index xây dựng các cluster gồm những row có value tương tự.</p></div>
+<div class="para" id="p06-u147"><p>Khả năng cluster data quan trọng đến mức tôi gọi nó là power thứ hai của indexing.</p></div>
+<div class="para" id="p06-u148"><p>Các section sau giải thích cách dùng index để cluster data và cải thiện query performance.</p></div>
+<h2 id="p06-u149">Index Filter Predicates Used Intentionally<a class="anchor" href="#p06-u149" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p06-u150"><p>Rất thường xuyên, index filter predicate cho thấy index được dùng không đúng do column order sai trong concatenated index. Tuy nhiên, index filter predicate cũng có thể được dùng có chủ đích — không phải để cải thiện range scan performance mà để nhóm những data được access liên tiếp lại với nhau.</p></div>
+<div class="para" id="p06-u151"><p>Các predicate trong <code class="kw">where</code> clause không thể làm access predicate là candidate tốt cho kỹ thuật này:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, subsidiary_id, phone_number
+  FROM employees
+ WHERE subsidiary_id = ?
+   AND UPPER(last_name) LIKE '%INA%';</code></pre></div>
+<div class="para" id="p06-u153"><p>Hãy nhớ rằng <code class="id">LIKE</code> expression có wildcard ở đầu không thể dùng index tree. Nghĩa là indexing <code class="id">LAST_NAME</code> không thu hẹp index range được scan — bất kể bạn index <code class="id">LAST_NAME</code> hay <code class="id">UPPER</code>(last_name). Vì vậy condition này không phải candidate tốt để indexing.</p></div>
+<div class="para" id="p06-u154"><p>Tuy nhiên, condition trên <code class="id">SUBSIDIARY_ID</code> rất phù hợp để indexing. Chúng ta thậm chí không cần thêm index mới vì <code class="id">SUBSIDIARY_ID</code> đã là leading column trong index của primary key.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
+|Id | Operation                   | Name       | Rows | Cost |
+--------------------------------------------------------------
+| 0 | SELECT STATEMENT            |            | 17 | 230 |
+|*1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES | 17 | 230 |
+|*2 |   INDEX RANGE SCAN          | EMPLOYEE_PK| 333 |     2 |
+--------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   1 - filter(UPPER("LAST_NAME") LIKE '%INA%')
+   2 - access("SUBSIDIARY_ID"=TO_NUMBER(:A))</code></pre></div>
+<div class="para" id="p06-u157"><p>Trong execution plan ở trên, cost value tăng một trăm lần từ <code class="id">INDEX RANGE SCAN</code> đến <code class="id">TABLE ACCESS</code> BY <code class="id">INDEX ROWID</code> tiếp theo. Nói cách khác, table access thực hiện phần lớn công việc. Đây thực sự là pattern phổ biến và bản thân nó không phải vấn đề. Tuy nhiên, nó là contributor đáng kể nhất vào overall execution time của query này.</p></div>
+<div class="para" id="p06-u158"><p>Table access không nhất thiết là bottleneck nếu các row được access nằm trong một table block, vì database có thể fetch toàn bộ row bằng một read operation. Ngược lại, nếu các row đó nằm rải rác trong nhiều block, table access có thể trở thành performance problem nghiêm trọng vì database phải fetch nhiều block để lấy toàn bộ row. Nghĩa là performance phụ thuộc vào physical distribution của các row — nói cách khác, phụ thuộc vào clustering của row.</p></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Note</span></p><p>Mối tương quan giữa index order và table order là một performance benchmark — cái gọi là index clustering factor.</p></aside>
+<div class="para" id="p06-u160"><p>Thực tế có thể cải thiện query performance bằng cách sắp xếp lại row trong table để chúng tương ứng với index order. Tuy nhiên, method này hiếm khi áp dụng được vì bạn chỉ có thể lưu table row theo một sequence. Nghĩa là bạn chỉ có thể optimize table cho một index. Ngay cả khi chọn được một index duy nhất để optimize table, đây vẫn là task khó vì hầu hết database chỉ cung cấp tool rất sơ sài cho việc này. Cái gọi là row sequencing rốt cuộc là một approach khá không thực tế.</p></div>
+<h4 id="p06-u162">The Index Clustering Factor<a class="anchor" href="#p06-u162" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p06-u163"><p>Index clustering factor là indirect measure của xác suất hai index entry liên tiếp reference đến cùng một table block. Optimizer tính đến xác suất này khi tính cost value của operation <code class="id">TABLE ACCESS</code> BY <code class="id">INDEX ROWID</code>.</p></div>
+<div class="para" id="p06-u164"><p>Đây chính là nơi power thứ hai của indexing — clustering data — phát huy tác dụng. Bạn có thể thêm nhiều column vào index để chúng tự động được lưu theo một order được xác định rõ. Điều đó biến index thành một tool mạnh nhưng đơn giản để cluster data.</p></div>
+<div class="para" id="p06-u165"><p>Để áp dụng concept này vào query ở trên, chúng ta phải extend index để cover toàn bộ column trong <code class="kw">where</code> clause — kể cả những column không thu hẹp index range được scan:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX empsubupnam ON employees
+       (subsidiary_id, UPPER(last_name));</code></pre></div>
+<div class="para" id="p06-u167"><p>Column <code class="id">SUBSIDIARY_ID</code> là index column đầu tiên nên có thể được dùng làm access predicate. Expression <code class="id">UPPER</code>(last_name) cover <code class="id">LIKE</code> filter dưới dạng index filter predicate. Index biểu diễn uppercase giúp tiết kiệm một vài <code class="id">CPU</code> cycle trong quá trình execute, nhưng index thông thường trên <code class="id">LAST_NAME</code> cũng hoạt động. Bạn sẽ tìm hiểu thêm về điều này trong section tiếp theo.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
+|Id | Operation                   | Name       | Rows | Cost |
+--------------------------------------------------------------
+| 0 | SELECT STATEMENT            |            | 17 |     20 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES | 17 |       20 |
+|*2 |   INDEX RANGE SCAN          | EMPSUBUPNAM| 17 |      3 |
+--------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   2 - access("SUBSIDIARY_ID"=TO_NUMBER(:A))
+       filter(UPPER("LAST_NAME") LIKE '%INA%')</code></pre></div>
+<div class="para" id="p06-u169"><p>Execution plan mới hiển thị chính các operation như trước. Dù vậy, cost value đã giảm đáng kể. Trong predicate information, chúng ta thấy <code class="id">LIKE</code> filter đã được áp dụng ngay trong <code class="id">INDEX RANGE SCAN</code>. Các row không thỏa <code class="id">LIKE</code> filter bị loại ngay lập tức. Table access không còn filter predicate nào nữa. Nghĩa là nó không load những row không thỏa <code class="kw">where</code> clause.</p></div>
+<div class="para" id="p07-u002"><p>Sự khác biệt giữa hai execution plan nhìn thấy rất rõ trong column “Rows”. Theo estimate của optimizer, query cuối cùng match 17 record. Tuy vậy, index scan trong execution plan thứ nhất trả về 333 row. Database sau đó phải load 333 row này từ table để áp dụng <code class="id">LIKE</code> filter, làm kết quả giảm xuống còn 17 row. Trong execution plan thứ hai, index access ngay từ đầu đã không trả về những row đó, nên database chỉ phải thực hiện operation <code class="id">TABLE ACCESS</code> BY <code class="id">INDEX ROWID</code> 17 lần.</p></div>
+<div class="para" id="p07-u003"><p>Bạn cũng nên lưu ý cost value của operation <code class="id">INDEX RANGE SCAN</code> tăng từ 2 lên 3 vì column bổ sung làm index lớn hơn. Xét performance gain đạt được, đây là một compromise chấp nhận được.</p></div>
+<aside class="callout warning "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Warning</span></p><p>Đừng tạo index mới chỉ vì mục đích duy nhất là dùng cho filter predicate. Thay vào đó, hãy extend một index hiện có và giữ maintenance effort ở mức thấp. Với một số database, bạn thậm chí có thể thêm vào index của primary key những column không thuộc primary key.</p></aside>
+<div class="para" id="p07-u005"><p>Ví dụ đơn giản này dường như xác nhận common wisdom rằng nên index mọi column trong <code class="kw">where</code> clause. Tuy nhiên, “wisdom” này bỏ qua tầm quan trọng của column order, yếu tố quyết định condition nào có thể được dùng làm access predicate và vì vậy có ảnh hưởng rất lớn đến performance. Do đó, quyết định về column order không bao giờ nên để cho chance quyết định.</p></div>
+<div class="para" id="p07-u006"><p>Index size cũng tăng theo số lượng column — đặc biệt khi thêm text column. Đương nhiên, index lớn hơn không làm performance tốt hơn, dù logarithmic scalability làm giảm đáng kể mức ảnh hưởng. Tuyệt đối không nên thêm tất cả column được nhắc đến trong <code class="kw">where</code> clause vào index; thay vào đó, chỉ dùng index filter predicate có chủ đích để giảm data volume ở một execution step sớm hơn.</p></div>
+<h2 id="p07-u008">Index-Only Scan<a class="anchor" href="#p07-u008" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p07-u008a"><p>Index-only scan là một trong những tuning method mạnh nhất. Nó không chỉ tránh access table để evaluate <code class="kw">where</code> clause, mà còn tránh hoàn toàn table access nếu database có thể tìm các column được select ngay trong index.</p></div>
+<div class="para" id="p07-u008b"><p>Để cover toàn bộ query, index phải chứa tất cả column từ SQL statement — đặc biệt là các column trong select clause như ví dụ sau:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX sales_sub_eur
+    ON sales
+     ( subsidiary_id, eur_value );
+
+SELECT SUM(eur_value)
+  FROM sales
+ WHERE subsidiary_id = ?;</code></pre></div>
+<div class="para" id="p07-u010"><p>Indexing <code class="kw">where</code> clause đương nhiên được ưu tiên hơn các clause khác. Vì vậy, column <code class="id">SUBSIDIARY_ID</code> nằm ở vị trí đầu tiên để đủ điều kiện làm access predicate.</p></div>
+<div class="para" id="p07-u011"><p>Execution plan cho thấy index scan không có table access tiếp theo (<code class="id">TABLE ACCESS</code> BY <code class="id">INDEX ROWID</code>).</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------------
+| Id | Operation          | Name          | Rows | Cost |
+----------------------------------------------------------
+| 0 | SELECT STATEMENT |                  |     1 | 104 |
+| 1 | SORT AGGREGATE      |               |     1 |      |
+|* 2 |    INDEX RANGE SCAN| SALES_SUB_EUR | 40388 | 104 |
+----------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   2 - access("SUBSIDIARY_ID"=TO_NUMBER(:A))</code></pre></div>
+<div class="para" id="p07-u013"><p>Index cover toàn bộ query nên còn được gọi là covering index.</p></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Note</span></p><p>Nếu một index ngăn table access thì nó cũng được gọi là covering index.</p>
+<p>Tuy nhiên, thuật ngữ này gây hiểu nhầm vì nghe như một property của index. Cụm từ index-only scan mô tả chính xác hơn vì nó gợi ý rằng đây là một operation trong execution plan.</p></aside>
+<div class="para" id="p07-u015"><p>Index có một bản copy của column <code class="id">EUR_VALUE</code> nên database có thể sử dụng value được lưu trong index. Không cần access table vì index đã có toàn bộ thông tin để đáp ứng query.</p></div>
+<div class="para" id="p07-u016"><p>Index-only scan có thể cải thiện performance rất lớn. Hãy nhìn row count estimate trong execution plan: optimizer dự kiến aggregate hơn 40,000 row. Điều đó có nghĩa index-only scan ngăn 40,000 table fetch — nếu mỗi row nằm trong một table block khác nhau. Nếu index có clustering factor tốt — tức là các row tương ứng được cluster trong một vài table block — lợi ích có thể thấp hơn đáng kể.</p></div>
+<div class="para" id="p07-u017"><p>Ngoài clustering factor, số row được select cũng giới hạn performance gain tiềm năng của index-only scan. Chẳng hạn, nếu select một row duy nhất thì bạn chỉ tiết kiệm được một table access. Vì tree traversal cũng cần fetch một vài block, table access được tiết kiệm có thể trở nên không đáng kể.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Performance advantage của index-only scan phụ thuộc vào số row được access và index clustering factor.</p></aside>
+<div class="para" id="p07-u019"><p>Index-only scan là một indexing strategy mạnh tay. Đừng chỉ vì nghi ngờ mà thiết kế index cho index-only scan, vì cách đó sử dụng memory không cần thiết và làm tăng maintenance effort cần cho các <code class="kw">update</code> statement. Xem Chapter 8, “Modifying Data”. Trong thực tế, trước tiên bạn nên index mà không xét đến select clause, rồi chỉ extend index nếu cần.</p></div>
+<div class="para" id="p07-u020a"><p>Index-only scan cũng có thể gây ra những bất ngờ khó chịu, chẳng hạn khi giới hạn query ở các sale gần đây:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT SUM(eur_value)
+  FROM sales
+ WHERE subsidiary_id = ?
+   AND sale_date &gt; ?;</code></pre></div>
+<div class="para" id="p07-u022"><p>Nếu không xem execution plan, người ta có thể kỳ vọng query chạy nhanh hơn vì nó select ít row hơn. Tuy nhiên, <code class="kw">where</code> clause reference đến một column không nằm trong index, nên database phải access table để load column này.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
+|Id | Operation                    | Name      | Rows |Cost |
+--------------------------------------------------------------
+| 0 | SELECT STATEMENT             |           |     1 | 371 |
+| 1 | SORT AGGREGATE               |           |     1 |     |
+|*2 | TABLE ACCESS BY INDEX ROWID| SALES       | 2019 | 371 |
+|*3 |    INDEX RANGE SCAN          | SALES_DATE| 10541 | 30 |
+--------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   2 - filter("SUBSIDIARY_ID"=TO_NUMBER(:A))
+   3 - access("SALE_DATE"&gt;:B)</code></pre></div>
+<div class="para" id="p07-u024"><p>Table access làm tăng response time dù query select ít row hơn. Factor liên quan không phải số row query trả về, mà là số row database phải inspect để tìm chúng.</p></div>
+<aside class="callout warning "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Warning</span></p><p>Mở rộng <code class="kw">where</code> clause có thể gây ra behavior performance “phi logic”. Hãy kiểm tra execution plan trước khi mở rộng query.</p></aside>
+<div class="para" id="p07-u026"><p>Nếu một index không còn được dùng cho index-only scan, optimizer sẽ chọn execution plan tốt tiếp theo. Điều đó có nghĩa optimizer có thể chọn một execution plan hoàn toàn khác hoặc, như ở trên, một execution plan tương tự nhưng dùng index khác. Trong trường hợp này, nó dùng index trên <code class="id">SALE_DATE</code>, là phần còn lại từ chapter trước.</p></div>
+<div class="para" id="p07-u028"><p>Từ góc nhìn của optimizer, index này có 2 advantage so với <code class="id">SALES_SUB_EUR</code>. Optimizer cho rằng filter trên <code class="id">SALE_DATE</code> có selectivity cao hơn filter trên <code class="id">SUBSIDIARY_ID</code>. Bạn có thể thấy điều đó trong column “Rows” tương ứng của 2 execution plan gần nhất (khoảng 10,000 so với 40,000). Tuy nhiên, các estimation này hoàn toàn arbitrary vì query dùng bind parameter. Chẳng hạn, condition <code class="id">SALE_DATE</code> có thể select toàn bộ table nếu truyền vào ngày của sale đầu tiên.</p></div>
+<div class="para" id="p07-u029"><p>Advantage thứ hai của index <code class="id">SALES_DATE</code> là nó có clustering factor tốt hơn. Đây là một lý do hợp lệ vì table <code class="id">SALES</code> chỉ tăng theo chronological order. Row mới luôn được append vào cuối table nếu không có row nào bị <code class="kw">delete</code>. Vì vậy, table order tương ứng với index order vì cả hai được sort gần đúng theo chronological order — index có clustering factor tốt.</p></div>
+<div class="para" id="p07-u030"><p>Khi dùng index có clustering factor tốt, các row được select được lưu gần nhau, nên database chỉ cần đọc một vài table block để lấy toàn bộ row. Dùng index này, query có thể đủ nhanh mà không cần index-only scan. Trong trường hợp đó, chúng ta nên gỡ các column không cần thiết khỏi index kia.</p></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Note</span></p><p>Một số index tự động có clustering factor tốt, nên performance advantage của index-only scan là tối thiểu.</p></aside>
+<div class="para" id="p07-u032"><p>Trong ví dụ cụ thể này, có một happy coincidence. Filter mới trên <code class="id">SALE_DATE</code> không chỉ ngăn index-only scan mà đồng thời còn mở ra một access path mới. Vì vậy optimizer có thể giới hạn performance impact của thay đổi này. Tuy nhiên, cũng có thể ngăn index-only scan bằng cách thêm column vào các clause khác. Việc thêm column vào select clause lại không bao giờ mở được một access path mới để hạn chế impact của việc mất index-only scan.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Maintain các index-only scan của bạn.</p>
+<p>Thêm comment nhắc về index-only scan và reference đến trang đó để bất kỳ ai cũng có thể đọc phần giải thích.</p></aside>
+<div class="para" id="p07-u035"><p>Function-based index cũng có thể gây bất ngờ khó chịu khi kết hợp với index-only scan. Index trên <code class="id">UPPER</code>(last_name) không thể dùng cho index-only scan khi select column <code class="id">LAST_NAME</code>. Ở section trước, đáng lẽ chúng ta phải index chính column <code class="id">LAST_NAME</code> để hỗ trợ <code class="id">LIKE</code> filter và cho phép dùng nó cho index-only scan khi select column <code class="id">LAST_NAME</code>.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Luôn ưu tiên index data gốc vì đó thường là thông tin hữu ích nhất bạn có thể đưa vào index.</p>
+<p>Tránh function-based indexing cho những expression không thể dùng làm access predicate.</p></aside>
+<div class="para" id="p07-u037"><p>Các query aggregation như ví dụ trên là candidate tốt cho index-only scan. Chúng query nhiều row nhưng chỉ một vài column, nên một index mảnh là đủ để hỗ trợ index-only scan. Càng query nhiều column, bạn càng phải thêm nhiều column vào index để hỗ trợ index-only scan. Vì vậy, developer chỉ nên select những column thực sự cần.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Tránh select * và chỉ fetch những column bạn cần.</p></aside>
+<div class="para" id="p07-u039"><p>Ngoài việc indexing nhiều row cần nhiều space, bạn cũng có thể chạm đến giới hạn của database. Hầu hết database đặt ra giới hạn khá cứng về số column mỗi index và tổng size của một index entry. Điều đó có nghĩa bạn không thể index số column tùy ý hoặc column có độ dài tùy ý. Overview sau đây liệt kê những giới hạn quan trọng nhất. Tuy vậy, vẫn có những index cover toàn bộ table như chúng ta sẽ thấy trong section tiếp theo.</p></div>
+<aside class="callout think_about_it "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Think about it</span></p><p>Query không select bất kỳ table column nào thường được execute bằng index-only scan.</p>
+<p>Bạn có nghĩ ra một ví dụ có ý nghĩa không?</p></aside>
+<h4 id="p07-u042">MySQL<a class="anchor" href="#p07-u042" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p07-u043"><p>MySQL 5.6 với InnoDB giới hạn mỗi column ở 767 byte và tổng tất cả column ở 3072 byte. Index MyISAM bị giới hạn ở 16 column và key length tối đa 1000 byte.</p></div>
+<div class="para" id="p07-u044"><p>MySQL có một feature độc đáo gọi là “prefix indexing” (đôi khi còn gọi là “partial indexing”). Nghĩa là chỉ index một vài character đầu tiên của column — nên nó không liên quan gì đến partial index được mô tả trong Chapter 2. Nếu bạn index một column vượt quá column length cho phép (767 byte với InnoDB), MySQL tự động truncate column tương ứng. Đó là lý do <code class="kw">create index</code> statement vẫn thành công với warning “Specified key was too long; max key length is 767 bytes” khi bạn vượt giới hạn. Nghĩa là index không còn chứa full copy của column và vì vậy chỉ hữu ích hạn chế cho index-only scan (tương tự function-based index).</p></div>
+<div class="para" id="p07-u045"><p>Bạn có thể dùng prefix indexing của MySQL một cách tường minh để tránh vượt quá total key length limit nếu gặp error message “Specified key was too long; max key length is [1000/3072] bytes.” Ví dụ sau chỉ index 10 character đầu tiên của column <code class="id">LAST_NAME</code>.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX .. ON employees (last_name(10));</code></pre></div>
+<h4 id="p07-u047">Oracle Database<a class="anchor" href="#p07-u047" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p07-u048"><p>Maximum index key length phụ thuộc vào block size và index storage parameter (75% database block size trừ một phần overhead). B-tree index bị giới hạn ở 32 column.</p></div>
+<div class="para" id="p07-u049"><p>Khi dùng Oracle 11g với mọi default được giữ nguyên (8k block), maximum index key length là 6398 byte. Vượt quá giới hạn này gây ra error message “<code class="id">ORA</code>-01450: maximum key length (6398) exceeded.”</p></div>
+<h4 id="p07-u050">PostgreSQL<a class="anchor" href="#p07-u050" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p07-u051"><p>Database PostgreSQL hỗ trợ index-only scan từ release 9.2.</p></div>
+<div class="para" id="p07-u052"><p>Key length của B-tree index bị giới hạn ở 2713 byte (hardcoded, xấp xỉ <code class="id">BLCKSZ</code>/3). Error message tương ứng “index row size ... exceeds btree maximum, 2713” chỉ xuất hiện khi execute một <code class="kw">insert</code> hoặc <code class="kw">update</code> vượt quá giới hạn. B-tree index có thể chứa tối đa 32 column.</p></div>
+<h4 id="p07-u053">SQL Server<a class="anchor" href="#p07-u053" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p07-u054"><p>SQL Server giới hạn key length ở 900 byte và 16 key column. Tuy nhiên, SQL Server có feature cho phép thêm column dài tùy ý vào index chỉ nhằm hỗ trợ index-only scan. Vì mục đích đó, SQL Server phân biệt key column và nonkey column.</p></div>
+<div class="para" id="p07-u055"><p>Key column là các index column như đã thảo luận từ đầu. Nonkey column là các column bổ sung chỉ được lưu trong index leaf node. Nonkey column có thể dài tùy ý nhưng không thể dùng làm access predicate (seek predicate).</p></div>
+<div class="para" id="p07-u056"><p>Nonkey column được định nghĩa bằng keyword include của <code class="kw">create index</code> command:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code> CREATE INDEX empsubupnam
+     ON employees
+       (subsidiary_id, last_name)
+INCLUDE(phone_number, first_name);</code></pre></div>
+<h2 id="p07-u058">Index-Organized Tables<a class="anchor" href="#p07-u058" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p07-u059"><p>Index-only scan execute một SQL statement chỉ bằng redundant data được lưu trong index. Original data trong heap table không cần thiết. Nếu đẩy concept đó lên mức tiếp theo và đưa tất cả column vào index, bạn có thể tự hỏi tại sao chúng ta còn cần heap table.</p></div>
+<div class="para" id="p07-u060"><p>Một số database thực sự có thể dùng index làm primary table store. Database Oracle gọi concept này là index-organized tables (IOT), còn database khác dùng thuật ngữ clustered index. Trong section này, cả hai thuật ngữ được dùng tùy theo việc muốn nhấn mạnh đặc điểm của table hay của index.</p></div>
+<div class="para" id="p07-u061"><p>Như vậy, index-organized table là một B-tree index không có heap table. Điều này tạo ra 2 benefit: (1) tiết kiệm space cho heap structure; (2) mọi access trên clustered index tự động là một index-only scan. Cả hai benefit nghe đều hứa hẹn nhưng thực tế khó đạt được.</p></div>
+<div class="para" id="p07-u063"><p>Nhược điểm của index-organized table trở nên rõ ràng khi tạo một index khác trên cùng table. Tương tự regular index, secondary index reference đến original table data — vốn được lưu trong clustered index. Ở đó, data không được lưu tĩnh như trong heap table mà có thể di chuyển bất kỳ lúc nào để duy trì index order. Vì vậy, không thể lưu physical location của row trong index-organized table vào secondary index. Thay vào đó database phải dùng logical key.</p></div>
+<div class="para" id="p07-u064"><p>Các figure sau cho thấy một index lookup để tìm tất cả sale vào May 23rd 2012. Để so sánh, trước tiên chúng ta xem Figure 5.1, mô tả process khi dùng heap table. Execution gồm 2 bước: (1) <code class="id">INDEX RANGE SCAN</code>; (2) <code class="id">TABLE ACCESS</code> BY <code class="id">INDEX ROWID</code>.</p></div>
+<figure class="fig" id="fig-5-1"><figcaption>Figure 5.1. Index-Based Access trên Heap Table</figcaption><div class="img-wrap"><img src="assets/img/p07-u066.png" alt="Figure 5.1. Index-Based Access trên Heap Table" loading="lazy"></div></figure>
+<div class="para" id="p07-u067"><p>Dù table access có thể trở thành bottleneck, nó vẫn chỉ giới hạn ở một read operation mỗi row vì index có <code class="id">ROWID</code> làm direct pointer đến table row. Database có thể load row ngay lập tức từ heap table vì index có exact position của row. Tuy nhiên, picture thay đổi khi dùng secondary index trên index-organized table. Secondary index không lưu physical pointer (<code class="id">ROWID</code>), mà chỉ lưu key value của clustered index — cái gọi là clustering key. Thường đó là primary key của index-organized table.</p></div>
+<div class="para" id="p07-u069"><p>Access secondary index không trả về <code class="id">ROWID</code> mà trả về logical key để tìm kiếm clustered index. Tuy nhiên, một access là chưa đủ để tìm trong clustered index — cần full tree traversal. Nghĩa là access table thông qua secondary index sẽ search 2 index: secondary index một lần (<code class="id">INDEX RANGE SCAN</code>), sau đó search clustered index cho mỗi row tìm thấy trong secondary index (<code class="id">INDEX UNIQUE SCAN</code>).</p></div>
+<figure class="fig" id="fig-5-2"><figcaption>Figure 5.2. Secondary Index trên một IOT</figcaption><div class="img-wrap"><img src="assets/img/p07-u071.png" alt="Figure 5.2. Secondary Index trên một IOT" loading="lazy"></div></figure>
+<div class="para" id="p07-u072"><p>Figure 5.2 cho thấy rõ B-tree của clustered index nằm giữa secondary index và table data.</p></div>
+<div class="para" id="p07-u073"><p>Access index-organized table thông qua secondary index rất inefficient, và có thể ngăn điều đó giống như cách ngăn table access trên heap table: dùng index-only scan — trong trường hợp này mô tả chính xác hơn là “secondary-index-only scan”. Performance advantage của index-only scan còn lớn hơn vì nó không chỉ ngăn một access mà ngăn toàn bộ <code class="id">INDEX UNIQUE SCAN</code>.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Access index-organized table thông qua secondary index rất inefficient.</p></aside>
+<div class="para" id="p07-u076"><p>Dùng ví dụ này, chúng ta cũng thấy database khai thác mọi redundancy mà nó có. Hãy nhớ rằng secondary index lưu clustering key cho mỗi index entry. Vì vậy, chúng ta có thể query clustering key từ secondary index mà không cần access index-organized table:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT sale_id
+FROM sales_iot
+WHERE sale_date = ?;
+
+------------------------------------------------
+| Id | Operation        | Name           | Cost |
+------------------------------------------------
+| 0 | SELECT STATEMENT |                 |    4 |
+|* 1 | INDEX RANGE SCAN| SALES_IOT_DATE |     4 |
+------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+1 - access("SALE_DATE"=:DT)</code></pre></div>
+<div class="para" id="p07-u078"><p>Table <code class="id">SALES_IOT</code> là một index-organized table dùng <code class="id">SALE_ID</code> làm clustering key. Dù index <code class="id">SALE_IOT_DATE</code> chỉ nằm trên column <code class="id">SALE_DATE</code>, nó vẫn có một bản copy của clustering key <code class="id">SALE_ID</code>, nên có thể đáp ứng query chỉ bằng secondary index.</p></div>
+<div class="para" id="p07-u079"><p>Khi select các column khác, database phải chạy một <code class="id">INDEX UNIQUE SCAN</code> trên clustered index cho mỗi row:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT eur_value
+FROM sales_iot
+WHERE sale_date = ?;
+---------------------------------------------------
+| Id | Operation          | Name           | Cost |
+---------------------------------------------------|
+|   0 | SELECT STATEMENT |                 | 13 |
+|* 1 | INDEX UNIQUE SCAN| SALES_IOT_PK | 13 |
+|* 2 |    INDEX RANGE SCAN| SALES_IOT_DATE |    4 |
+---------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+1 - access("SALE_DATE"=:DT)
+2 - access("SALE_DATE"=:DT)</code></pre></div>
+<div class="para" id="p07-u082"><p>Index-organized table và clustered index, sau cùng, không hữu ích như ấn tượng ban đầu. Performance improvement trên clustered index dễ dàng mất đi khi dùng secondary index. Clustering key thường dài hơn <code class="id">ROWID</code>, nên secondary index lớn hơn so với trên heap table, thường xóa bỏ phần space tiết kiệm được do không có heap table. Điểm mạnh của index-organized table và clustered index chủ yếu giới hạn ở những table không cần index thứ hai. Heap table có lợi thế cung cấp một master copy cố định, dễ reference.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Table chỉ có một index được implement tốt nhất dưới dạng clustered index hoặc index-organized table.</p>
+<p>Table có nhiều index thường có thể hưởng lợi từ heap table. Bạn vẫn có thể dùng index-only scan để tránh table access. Cách này đem lại select performance của clustered index mà không làm chậm các index khác.</p></aside>
+<div class="para" id="p07-u084"><p>Database support cho index-organized table và clustered index rất inconsistent. Overview ở trang tiếp theo giải thích những điểm đặc thù quan trọng nhất.</p></div>
+<aside class="callout sidebar "><p class="title"><span>Why Secondary Indexes have no ROWID</span></p><p>Một direct pointer đến table row cũng sẽ hữu ích cho secondary index. Nhưng điều đó chỉ khả thi nếu table row nằm ở các storage position cố định. Đáng tiếc là điều này không thể xảy ra nếu row là một phần của index structure được duy trì theo thứ tự. Duy trì index order đôi khi cần di chuyển row. Điều này cũng đúng với operation không tác động đến bản thân row. Chẳng hạn, một <code class="kw">insert</code> statement có thể split leaf node để tạo space cho entry mới. Điều đó có nghĩa một số entry được chuyển sang data block mới ở một vị trí khác.</p>
+<p>Ngược lại, heap table không giữ row theo thứ tự nào. Database lưu entry mới ở bất cứ nơi nào tìm thấy đủ space. Sau khi được ghi, data không di chuyển trong heap table.</p></aside>
+<h4 id="p07-u087">MySQL<a class="anchor" href="#p07-u087" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p07-u088"><p>Engine MyISAM chỉ dùng heap table, trong khi engine InnoDB luôn dùng clustered index. Nghĩa là bạn không trực tiếp có quyền lựa chọn.</p></div>
+<h4 id="p07-u089">Oracle Database<a class="anchor" href="#p07-u089" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p07-u090"><p>Database Oracle mặc định dùng heap table. Có thể tạo index-organized table bằng clause <code class="id">ORGANIZATION INDEX</code>:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE TABLE (
+   id    NUMBER NOT NULL PRIMARY KEY,
+   [...]
+) ORGANIZATION INDEX;</code></pre></div>
+<div class="para" id="p07-u092"><p>Database Oracle luôn dùng primary key làm clustering key.</p></div>
+<h4 id="p07-u093">PostgreSQL<a class="anchor" href="#p07-u093" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p07-u094"><p>PostgreSQL chỉ dùng heap table.</p></div>
+<div class="para" id="p07-u095"><p>Tuy nhiên, bạn có thể dùng clause <code class="id">CLUSTER</code> để căn chỉnh nội dung của heap table theo một index.</p></div>
+<h4 id="p07-u096">SQL Server<a class="anchor" href="#p07-u096" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p07-u097"><p>Mặc định SQL Server dùng clustered index (index-organized table), sử dụng primary key làm clustering key. Tuy nhiên, bạn có thể dùng column bất kỳ làm clustering key — kể cả column không unique.</p></div>
+<div class="para" id="p07-u098"><p>Để tạo heap table, bạn phải dùng clause <code class="id">NONCLUSTERED</code> trong primary key definition:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE TABLE (
+   id    NUMBER NOT NULL,
+   [...]
+   CONSTRAINT pk PRIMARY KEY NONCLUSTERED (id)
+);</code></pre></div>
+<div class="para" id="p07-u100"><p>Drop một clustered index sẽ transform table thành heap table.</p></div>
+<div class="para" id="p07-u101"><p>Behavior mặc định của SQL Server thường gây performance problem khi dùng secondary index.</p></div>
+</div>
+<nav class="pager"><a class="prev" href="chap_04.html"><small>← Trước</small>Chương 4 — Join Operation</a><a class="next" href="chap_06.html"><small>Sau →</small>Chương 6 — Sorting và Grouping</a></nav>
+</main>
+</div>
+</body>
+</html>

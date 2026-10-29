@@ -1,0 +1,34 @@
+{
+  "part_id": "part_10",
+  "rule_version": "1.0",
+  "pdf_status": "PASS",
+  "source_pdf": "en_parts/part_10.pdf",
+  "output_pdf": "vi/parts/part_10.pdf",
+  "source_page_count": 21,
+  "output_page_count": 24,
+  "protected_unit_count": 24,
+  "protected_unit_audit": "PASS",
+  "protected_units_rendered_once": 24,
+  "protected_units_with_exact_source_mapping": 24,
+  "protected_units_with_nonempty_assets": 24,
+  "generic_pre_blocks": 0,
+  "pdf_checks": {
+    "qpdf_check": "PASS",
+    "utf8_roundtrip": "PASS",
+    "replacement_characters": 0,
+    "file_urls": 0,
+    "selectable_vietnamese_prose": "PASS",
+    "page_geometry": "PASS",
+    "blank_or_duplicate_pages": "PASS",
+    "clipping_or_overflow": "PASS"
+  },
+  "visual_review": {
+    "rendered_pages_reviewed": 24,
+    "contact_sheet_reviewed": true,
+    "representative_pages_reviewed": [1, 6, 12, 23, 24],
+    "protected_contact_sheet_reviewed": true,
+    "result": "PASS"
+  },
+  "findings": [],
+  "final_status": "FINALIZED"
+}

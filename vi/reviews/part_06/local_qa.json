@@ -1,0 +1,61 @@
+{
+  "part_id": "part_06",
+  "rule_version": "1.0",
+  "source_unit_count": 169,
+  "translated_unit_count": 169,
+  "coverage_check": "PASS",
+  "code_integrity_check": "PASS",
+  "local_status": "LOCAL_QA_PASSED",
+  "boundary_status": "PASS",
+  "final_status": "FINALIZED",
+  "findings": [
+    {
+      "finding_id": "QA-006-001",
+      "severity": "MAJOR",
+      "unit_id": "p06-u124",
+      "source_quote": "The ordered source unit sequence must match the ordered translation sequence.",
+      "translated_quote": "p06-u127 preceded p06-u124 in source_unit_ids and translation.",
+      "issue": "The translation content was complete, but the artifact order violated the required ordered unit contract.",
+      "proposed_fix": "Move p06-u124, p06-u125, and p06-u126 before p06-u127 in both ordered sequences.",
+      "status": "FIXED"
+    },
+    {
+      "finding_id": "QA-006-002",
+      "severity": "MINOR",
+      "unit_id": "p06-u144",
+      "source_quote": "Column oriented databases, or column-stores, organize tables in a columned way.",
+      "translated_quote": "Column-oriented database, hay column-store, tổ chức table theo column.",
+      "issue": "The singular form was less faithful to the source plural subject.",
+      "proposed_fix": "Các database dạng column-oriented, hay column-store, tổ chức table theo column.",
+      "status": "FIXED"
+    }
+  ],
+  "boundary_review": {
+    "previous_part_id": "part_05",
+    "next_part_id": "part_07",
+    "referents_checked": [
+      "Part 05 ends with Java/Hibernate N+1 SQL output; Part 06 continues the same Nested Loops ORM examples with Perl and PHP without repeating the Java example.",
+      "Part 06 ends by explaining the second execution plan for intentional index filter predicates; Part 07 opens by comparing those same two plans in the Rows column. Boundary QA passed."
+    ],
+    "terminology_conflicts": [],
+    "continuity_issues": []
+  },
+  "glossary_change_proposals": [],
+  "unresolved_questions": [],
+  "verified_automated_checks": [
+    "JSON parsed with jq.",
+    "source_unit_ids exactly equal the ordered translation unit IDs: 169/169, with no missing, extra, duplicate, or out-of-order IDs.",
+    "Generated HTML contains exactly 169 data-unit-id values.",
+    "All 36 protected SQL, code, terminal, execution-plan, and DDL units have one source page, rectangle, crop asset, and exact-once HTML mapping; the blank source page clone is emitted once.",
+    "Protected blocks are not rendered as HTML pre elements; Vietnamese prose remains selectable in pdftotext output.",
+    "qpdf --check passes and Unicode extraction round-trips through iconv with no replacement characters or file URLs."
+  ],
+  "verified_manual_checks": [
+    "Audited all 169 semantic units against the complete Part 06 English source text and layout, including headings, paragraphs, tips, warnings, notes, quote, footnotes, URLs, SQL, code, terminal output, execution plans, and the intentional blank source page.",
+    "Verified Nested Loops, N+1 selects, SQL logging, join indexing, eager fetching, runtime join control, hash joins, independent predicates, hash-table sizing, partial objects, MySQL hash-join limitation, sort-merge joins, data clustering, index filter predicates, and index clustering factor reasoning.",
+    "Verified protected identifiers, literals, operators, operation names, numeric values, SQL/code formatting, the feature request number, and the source-only Part 07 opening context remain source-authoritative.",
+    "Read the reviewed Part 05 tail with the Part 06 opening and the Part 06 tail with the Part 07 opening draft; both transitions preserve the active argument and do not duplicate neighboring units.",
+    "Boundary QA Part 06 -> Part 07 passed: the final execution-plan comparison flows directly into the Rows-column comparison, with no referent, polarity, terminology, or argument break.",
+    "Reviewed the rendered 24-page contact sheet and all 36 protected crop images for blank-page handling, clipping, overflow, crop completeness, and separation from Vietnamese prose."
+  ]
+}

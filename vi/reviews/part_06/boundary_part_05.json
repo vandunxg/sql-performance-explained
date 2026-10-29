@@ -1,0 +1,27 @@
+{
+  "from_part_id": "part_05",
+  "to_part_id": "part_06",
+  "rule_version": "1.0",
+  "from_status_before": "FINALIZED",
+  "from_status_after": "FINALIZED",
+  "boundary_status": "PASS",
+  "units_reviewed": ["p05-u144", "p05-u145", "p05-u147", "p05-u148", "p06-u001", "p06-u002", "p06-u003"],
+  "source_evidence": [
+    {"unit_id":"p05-u144","quote":"Java"},
+    {"unit_id":"p05-u145","quote":"The JPA example uses the CriteriaBuilder interface."},
+    {"unit_id":"p05-u147","quote":"Hibernate JPA 3.6.0 generates N+1 select queries:"},
+    {"unit_id":"p05-u148","quote":"select employees0_.subsidiary_id as subsidiary1_0_ -- MORE COLUMNS ..."},
+    {"unit_id":"p06-u001","quote":"Chapter 4: The Join Operation"},
+    {"unit_id":"p06-u002","quote":"Perl"},
+    {"unit_id":"p06-u003","quote":"The following sample demonstrates Perl’s DBIx::Class framework:"}
+  ],
+  "checks": [
+    {"check":"referent_and_argument_continuity","result":"PASS","evidence":"Part 05 ends after introducing the N+1 problem through Java/Hibernate. Part 06 continues the same Nested Loops and ORM discussion with Perl and PHP examples, then proceeds to SQL logging."},
+    {"check":"terminology_continuity","result":"PASS","evidence":"Nested Loops, ORM, N+1 selects, SALES, driving query, DBIx::Class, and framework terminology remain consistent with the reviewed Part 05 ending."},
+    {"check":"polarity_and_modality","result":"PASS","evidence":"The criticism of accidental nested selects continues as examples; no new conclusion, guarantee, or contradiction is introduced at the boundary."},
+    {"check":"boundary_render_independence","result":"PASS","evidence":"Part 05 ends at p05-u148 and Part 06 begins at p06-u001; neither output includes neighboring context units from the other part."}
+  ],
+  "findings": [],
+  "revision_required": false,
+  "next_boundary_status": "PENDING_PART_06_TO_PART_07"
+}

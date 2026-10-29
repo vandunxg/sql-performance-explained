@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "policy_exception": "Theo chỉ dẫn của người dùng, code blocks, SQL queries, tables và images được giữ nguyên; chỉ prose (bao gồm heading, caption, footnote và link text) được dịch.",
+  "terms": {
+    "SQL": "SQL",
+    "database": "database",
+    "query": "query",
+    "index": "index",
+    "execution plan": "execution plan",
+    "optimizer": "optimizer",
+    "cost": "cost",
+    "row": "row",
+    "table": "table",
+    "join": "join",
+    "pagination": "pagination"
+  }
+}

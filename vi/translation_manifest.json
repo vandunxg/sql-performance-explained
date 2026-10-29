@@ -1,0 +1,43 @@
+{
+  "project": "SQL Performance Explained EN to VI",
+  "source_pdf": "SQL Performance Explained.pdf",
+  "source_page_count": 207,
+  "translation_rules": {
+    "translation": { "path": "RUE.md", "version": "1.0", "sha256": "5dee25545abed91b08857f35f06d445a96b3a68fbf0d1f082b8fd847f56ef21f" },
+    "qa": { "path": "QA_RULE.md", "version": "1.0", "sha256": "b9f4920bd457a7e5f52efc6e58ad277b064c5ddeb85735f91b1039dd17dfa3b0" }
+  },
+  "source_validation": {
+    "status": "PASS",
+    "original_text_sha256": "9c23ef398d1cdd78f274995f995ff656d01e160d1adcb17399d1215268dcc529",
+    "concatenated_part_text_sha256": "9c23ef398d1cdd78f274995f995ff656d01e160d1adcb17399d1215268dcc529",
+    "page_count_match": true,
+    "parts": 10
+  },
+  "content_policy": {
+    "translate": ["headings", "paragraphs", "lists", "captions", "footnotes", "link text"],
+    "preserve_verbatim": ["SQL", "code blocks", "tables", "images", "diagrams", "identifiers", "numeric values", "formulas"]
+  },
+  "final_pdf": {
+    "path": "vi/SQL_Performance_Explained_VI.pdf",
+    "qa_report": "vi/final_qa_report.md",
+    "sha256": "ecfcfc59882ae74634e687b78570ae19e73d40e42f4cc62288ef338261575fae",
+    "page_count": 239,
+    "status": "FINAL_QA_PASSED_WITH_NAVIGATION_LIMITATION",
+    "merge_tool": "qpdf",
+    "part_order": ["part_01", "part_02", "part_03", "part_04", "part_05", "part_06", "part_07", "part_08", "part_09", "part_10"],
+    "part_page_ranges": {
+      "part_01": "1-21",
+      "part_02": "22-43",
+      "part_03": "44-68",
+      "part_04": "69-93",
+      "part_05": "94-116",
+      "part_06": "117-140",
+      "part_07": "141-166",
+      "part_08": "167-191",
+      "part_09": "192-215",
+      "part_10": "216-239"
+    },
+    "bookmarks": "NOT_PRESENT_AFTER_QPDF_MERGE",
+    "toc": "RENDERED_CONTENT_PRESENT; PAGE_NUMBERS_NOT_UPDATED"
+  }
+}

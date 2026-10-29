@@ -1,0 +1,40 @@
+{
+  "part_id": "part_04",
+  "rule_version": "1.0",
+  "source_unit_count": 165,
+  "translated_unit_count": 165,
+  "coverage_check": "PASS",
+  "code_integrity_check": "PASS",
+  "local_status": "LOCAL_QA_PASSED",
+  "boundary_status": "PASS",
+  "final_status": "FINALIZED",
+  "findings": [],
+  "boundary_review": {
+    "previous_part_id": "part_03",
+    "next_part_id": "part_05",
+    "referents_checked": [
+      "Part 04 opens a new NULL in the Oracle Database section after Part 03's final partial-index question and SQL; no unfinished referent or causal chain is carried across the opening.",
+      "Part 04 closes by introducing Smart Logic and the single-query setup; Part 05 continues with the optional-filter query without duplicating Part 04 prose."
+    ],
+    "terminology_conflicts": [],
+    "continuity_issues": []
+  },
+  "glossary_change_proposals": [],
+  "unresolved_questions": [],
+  "verified_automated_checks": [
+    "JSON parsed with jq.",
+    "source_unit_ids exactly equal the ordered translation unit IDs: 165/165, with no missing, extra, or duplicate IDs.",
+    "Generated HTML contains exactly 165 data-unit-id values.",
+    "All 58 protected SQL/code/execution-plan/output units have source-page, rectangle, crop-asset, and exact-once regression mappings.",
+    "Protected blocks are not rendered as HTML pre elements; Vietnamese prose remains selectable in pdftotext output.",
+    "qpdf --check passes for vi/parts/part_04.pdf and Unicode extraction round-trips through iconv without replacement characters."
+  ],
+  "verified_manual_checks": [
+    "Audited all 165 semantic units against the complete Part 04 English extraction, including headings, paragraphs, tips, sidebar text, SQL, code, execution plans, output blocks, references, and the Part 04 ending setup for Smart Logic.",
+    "Checked NULL semantics, empty-string behavior, index omission rules, NOT NULL metadata, deterministic function restrictions, access-predicate reasoning, date/time boundary conditions, implicit conversions, wildcard behavior, and redundant multi-column predicates.",
+    "Verified SQL, code, identifiers, literals, execution-plan operation names, numeric values, function comments, output rows, and URLs are preserved by source crops or verbatim protected-unit payloads.",
+    "Read the reviewed Part 03 tail and handoff against the Part 04 opening; the section transition is explicit and does not repeat Part 03 content.",
+    "Read the Part 04 reviewed tail against the Part 05 opening translation; the Smart Logic setup leads directly into the next query without a false conclusion or duplicated heading content.",
+    "Boundary Part 04 -> Part 05 passed separately in vi/reviews/part_05/boundary_part_04.json."
+  ]
+}

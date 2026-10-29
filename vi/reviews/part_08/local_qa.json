@@ -1,0 +1,48 @@
+{
+  "part_id": "part_08",
+  "rule_version": "1.0",
+  "source_unit_count": 149,
+  "translated_unit_count": 149,
+  "coverage_check": "PASS",
+  "code_integrity_check": "PASS",
+  "local_status": "LOCAL_QA_PASSED",
+  "boundary_status": "PASS_PREVIOUS_PART_AND_NEXT_PART",
+  "final_status": "FINALIZED",
+  "findings": [
+    {
+      "finding_id": "QA-008-001",
+      "severity": "MAJOR",
+      "unit_id": "p08-u003",
+      "source_quote": "Protected SQL, execution-plan, figure, and matrix regions must be source-authoritative and isolated from adjacent prose.",
+      "translated_quote": "Initial crop pass included neighboring source prose in several protected rectangles.",
+      "issue": "The initial renderer geometry for 31 protected regions was too broad in multiple places, which could have reproduced English prose alongside protected blocks.",
+      "proposed_fix": "Recomputed source-page rectangles from the source PDF text geometry, regenerated all crops, and reran the contract and visual checks.",
+      "status": "FIXED"
+    }
+  ],
+  "boundary_review": {
+    "previous_part_id": "part_07",
+    "next_part_id": "part_09",
+    "referents_checked": [
+      "Part 07 closes by stating that the database can read an index in both directions; Part 08 opens with the mixed ASC/DESC prerequisite and the reverse-scan figure without changing that subject.",
+      "Part 08 closes by distinguishing the human-readable equivalent predicate from the form databases can use as an access predicate; Part 09 source-only opening shifts to window functions for pagination without duplicating Part 08 content."
+    ],
+    "terminology_conflicts": [],
+    "continuity_issues": []
+  },
+  "verified_automated_checks": [
+    "jq parsed translation.json and confirmed source_unit_ids exactly equal the ordered translation IDs: 149/149, unique, with status DRAFT.",
+    "Generated HTML contains exactly 149 data-unit-id values and zero pre elements.",
+    "All 31 protected units have one source page, rectangle, crop asset, and exact-once HTML mapping; p08-u046 clones the blank source page once.",
+    "All 31 crop assets are non-empty; qpdf --check passes; pdftotext contains selectable Vietnamese prose and no file:/// URLs.",
+    "UTF-8 extraction round-trips through iconv with no replacement characters; all 25 rendered output pages have consistent 840x1293 PNG dimensions.",
+    "Exact source SQL/code/plan text is carried by the protected source crops; no generic pre block is used."
+  ],
+  "verified_manual_checks": [
+    "Audited all 149 ordered units against the complete Part 08 English source text and source layout, including repeated page-header units, headings, paragraphs, warnings, notes, important callouts, tips, captions, SQL, execution plans, figures, the matrix, sidebars, and the intentional blank page.",
+    "Audited all protected blocks against the source PDF crop contact sheet: mixed-order diagrams, SQL, execution plans, the database/feature matrix, Top-N chart, pagination diagrams/charts, and the two SQL fragments in the final sidebar remain source-authoritative and render once each.",
+    "Checked technical reasoning for mixed ASC/DESC order, NULL sorting support, pipelined GROUP BY, hash versus sort/group aggregation, top-N termination, offset versus seek pagination, deterministic ordering, row values, access predicates, and filter predicates; no Critical or Major semantic issue remains open.",
+    "Read the reviewed Part 07 tail with the Part 08 opening and the Part 08 tail with the Part 09 source-only opening; subject, referents, polarity, terminology, and argument direction remain continuous.",
+    "Inspected the full 25-page 144-DPI contact sheet and representative full pages for blank-page handling, clipping, overflow, table/diagram integrity, protected-block boundaries, and selectable Vietnamese prose."
+  ]
+}

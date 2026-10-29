@@ -1,0 +1,28 @@
+{
+  "from_part_id": "part_07",
+  "to_part_id": "part_08",
+  "rule_version": "1.0",
+  "from_status_before": "DRAFT_PENDING_BOUNDARY",
+  "from_status_after": "FINALIZED",
+  "boundary_status": "PASS",
+  "units_reviewed": ["p07-u147", "p07-u148", "p07-u149", "p08-u001", "p08-u002", "p08-u003", "p08-u004", "p08-u005"],
+  "source_evidence": [
+    {"unit_id":"p07-u147","quote":"In this case, the database uses the index tree to find the last matching entry. From there on, it follows the leaf node chain “upwards” as shown in Figure 6.2."},
+    {"unit_id":"p07-u148","quote":"Of course it is crucial that the scanned index range is in the exact opposite order as needed for the order by clause."},
+    {"unit_id":"p07-u149","quote":"Important\nDatabases can read indexes in both directions."},
+    {"unit_id":"p08-u001","quote":"Indexing ASC, DESC and NULLS FIRST/LAST"},
+    {"unit_id":"p08-u002","quote":"Figure 6.2. Reverse Index Scan"},
+    {"unit_id":"p08-u003","quote":"Figure 6.2 reverse index scan diagram"},
+    {"unit_id":"p08-u004","quote":"The following example does not fulfill this prerequisite because it mixes ASC and DESC modifiers in the order by clause:"},
+    {"unit_id":"p08-u005","quote":"SELECT sale_date, product_id, quantity\nFROM sales\nWHERE sale_date >= TRUNC(sysdate) - INTERVAL '1' DAY\nORDER BY sale_date ASC, product_id DESC;"}
+  ],
+  "checks": [
+    {"check":"referent_and_argument_continuity","result":"PASS","evidence":"Part 07 establishes reverse index reads and the exact-opposite-order prerequisite. Part 08 immediately continues with the mixed ASC/DESC case and the Figure 6.2 context before introducing the failed pipelined order-by example."},
+    {"check":"terminology_continuity","result":"PASS","evidence":"The opening retains index, scanned index range, order by clause, ASC, DESC, and pipelined order by terminology without conflicting with the Part 07 handoff."},
+    {"check":"polarity_and_condition_changes","result":"PASS","evidence":"The Part 08 opening preserves the source condition that mixed directions do not satisfy the previously established prerequisite; no “always” or other stronger claim is introduced."},
+    {"check":"boundary_render_independence","result":"PASS","evidence":"Part 08 HTML contains only p08 unit IDs; Part 07 tail units are used only as boundary context and are not duplicated in the Part 08 translation or PDF."}
+  ],
+  "findings": [],
+  "revision_required": false,
+  "next_boundary_status": "PENDING_NEXT_TRANSLATION"
+}

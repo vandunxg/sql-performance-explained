@@ -1,0 +1,20 @@
+{
+  "part_id": "part_10",
+  "status": "FINALIZED",
+  "initial_status": "DRAFT",
+  "book_boundary": true,
+  "argument_summary": [
+    "Part 10 completes Appendix A by explaining PostgreSQL access and filter predicates, then comparing SQL Server and MySQL execution-plan terminology and operations.",
+    "PostgreSQL displays both access and index-filter predicates as Index Cond, while Filter is always a table-level filter predicate.",
+    "SQL Server distinguishes Seek Predicates from Predicates/where labels and presents graphical and tabular plan inspection.",
+    "MySQL uses access type, key_len, Using index condition and Using where to describe plan behavior before the book index and back matter."
+  ],
+  "terminology_decisions": ["access predicate", "index filter predicate", "table level filter predicate", "Index Cond", "Filter", "Seek Predicates", "execution plan", "Index Scan", "key_len", "Using index condition", "Using where"],
+  "open_references": [],
+  "previous_part_tail": [
+    {"unit_id":"p09-u163","translated_text":"Hiệu quả của top-N query phụ thuộc vào execution mode của các operation bên dưới. Nó rất kém hiệu quả khi abort các nonpipelined operation như Sort."},
+    {"unit_id":"p09-u164","translated_text":"WindowAgg\nCho biết đang dùng window function. Xem thêm “Using Window Functions for Pagination” ở page 156."},
+    {"unit_id":"p09-u165","translated_text":"Caution\nPostgreSQL không thể execute pipelined top-N query khi dùng window function."}
+  ],
+  "next_part_source_only_units": []
+}

@@ -1,0 +1,39 @@
+{
+  "part_id": "part_09",
+  "artifact": "vi/parts/part_09.pdf",
+  "artifact_sha256": "1cf9f95f33b7a1efb161afb4d6e758ee32d85d51f99e398c46f7cdd622e07c3c",
+  "pdf_qa_status": "PASS",
+  "render_engine": "Chromium 149.0.7827.53 for Vietnamese prose; qpdf for PDF assembly; pdftoppm 400 DPI plus ImageMagick for protected source crops",
+  "render_command": "node vi/translations/part_09/render_pdf.js",
+  "source_translation_status": "DRAFT",
+  "finalized_claim": false,
+  "audit": {
+    "source_pages": 21,
+    "output_pages": 24,
+    "front_matter_pages_cloned": 0,
+    "front_matter_note": "Part 09 source PDF begins with Chapter 7 content; no cover, title, or ToC pages are present to clone.",
+    "typed_protected_units": 17,
+    "protected_blocks_rendered_once": 17,
+    "new_crop_assets": 18,
+    "special_source_pages_cloned_once": 1,
+    "translation_units_rendered": 165,
+    "result": "PASS"
+  },
+  "evidence": {
+    "qpdf_check": "PASS: qpdf --check vi/parts/part_09.pdf",
+    "test": "PASS: bash vi/translations/part_09/test_pdf.sh",
+    "unit_coverage": "PASS: 165 translation entries and 165 HTML data-unit-id values",
+    "ordered_unit_contract": "PASS: source_unit_ids and translation IDs are ordered and unique",
+    "protected_clone_contract": "PASS: 17 source-clone img elements, 17 crop assets, zero protected pre blocks, each source page/rectangle mapping present once",
+    "special_page_contract": "PASS: p09-u013 source page 3 cloned once",
+    "embedded_image_check": "PASS: protected crop images and the special source page are embedded in the assembled PDF",
+    "text_extraction": "PASS: pdftotext returns Vietnamese prose; zero file:/// URLs; UTF-8 round-trip passed with zero replacement characters",
+    "page_render_check": "PASS: all 24 output pages rendered at 144 DPI with consistent 840x1293 PNG dimensions; contact-sheet review found no blank-page, clipping, overflow, or block-boundary anomalies beyond the intentional cloned source page",
+    "source_region_check": "PASS: all 17 crops were regenerated from their recorded source page and rectangle at 400 DPI; p09-u026 and p09-u129 were rechecked after rectangle corrections"
+  },
+  "limitations": [
+    "Protected SQL, code, execution-plan, table, and diagram blocks are raster images and are not selectable text by policy.",
+    "Vietnamese prose remains selectable Chromium text.",
+    "Part 09 translation.json remains marked DRAFT because the Part 09 to Part 10 boundary is pending."
+  ]
+}

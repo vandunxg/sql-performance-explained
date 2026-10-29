@@ -1,0 +1,27 @@
+{
+  "from_part_id": "part_04",
+  "to_part_id": "part_05",
+  "rule_version": "1.0",
+  "from_status_before": "LOCAL_QA_PASSED_PENDING_BOUNDARY",
+  "from_status_after": "FINALIZED",
+  "boundary_status": "PASS",
+  "units_reviewed": ["p04-u162", "p04-u163", "p04-u164", "p04-u165", "p05-u001", "p05-u002", "p05-u003"],
+  "source_evidence": [
+    {"unit_id":"p04-u162","quote":"One of the key features of SQL databases is their support for ad-hoc queries: new queries can be executed at any time. This is only possible because the query optimizer (query planner) works at runtime; it analyzes each statement when received and generates a reasonable execution plan immediately. The overhead introduced by runtime optimization can be minimized with bind parameters."},
+    {"unit_id":"p04-u163","quote":"The gist of that recap is that databases are optimized for dynamic SQL—so use it if you need it."},
+    {"unit_id":"p04-u164","quote":"Nevertheless there is a widely used practice that avoids dynamic SQL in favor of static SQL—often because of the “dynamic SQL is slow” myth."},
+    {"unit_id":"p04-u165","quote":"For the sake of demonstration, imagine an application that queries the EMPLOYEES table. The application allows searching for subsidiary id, employee id and last name (case-insensitive) in any combination."},
+    {"unit_id":"p05-u001","quote":"Smart Logic"},
+    {"unit_id":"p05-u002","quote":"SELECT first_name, last_name, subsidiary_id, employee_id\nFROM employees\nWHERE ( subsidiary_id\n= :sub_id OR :sub_id IS NULL )\nAND ( employee_id\n= :emp_id OR :emp_id IS NULL )\nAND ( UPPER(last_name) = :name OR :name IS NULL )"},
+    {"unit_id":"p05-u003","quote":"The query uses named bind variables for better readability. All possible filter expressions are statically coded in the statement."}
+  ],
+  "checks": [
+    {"check":"referent_and_argument_continuity","result":"PASS","evidence":"Part 04 introduces the Smart Logic anti-pattern and its single-query setup. Part 05 opens with the query itself and continues the explanation without duplicating Part 04 or losing the bind-parameter context."},
+    {"check":"terminology_continuity","result":"PASS","evidence":"Smart Logic, dynamic SQL, bind parameter, execution plan, filter, and EMPLOYEES terminology remains consistent across the boundary."},
+    {"check":"polarity_and_modality","result":"PASS","evidence":"The transition preserves Part 04's recommendation to use dynamic SQL when needed while Part 05 introduces the static optional-filter query as the anti-pattern under discussion."},
+    {"check":"boundary_render_independence","result":"PASS","evidence":"Part 05 HTML and PDF contain only p05 unit IDs; Part 04 context units are used only in this review and are not duplicated in the rendered output."}
+  ],
+  "findings": [],
+  "revision_required": false,
+  "next_boundary_status": "PASS"
+}

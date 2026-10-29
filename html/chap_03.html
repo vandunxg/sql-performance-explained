@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chương 3 — Performance và Scalability — SQL Performance Explained (VI)</title>
+<script>
+(function(){try{var t=localStorage.getItem("spe-theme");if(t&&t!=="auto")document.documentElement.setAttribute("data-theme",t);
+var s=parseFloat(localStorage.getItem("spe-scale"));if(s)document.documentElement.style.setProperty("--font-scale",s);}catch(e){}})();
+</script>
+<link rel="stylesheet" href="assets/css/book.css">
+<script src="assets/js/book.js" defer></script>
+</head>
+<body>
+<div class="progress"></div>
+<header class="topbar">
+  <button id="toc-toggle" type="button" aria-label="Mục lục chương">☰</button>
+  <a class="brand" href="index.html">SQL Performance Explained</a>
+  <span class="crumb">/ Chương 3 — Performance và Scalability</span>
+  <span class="spacer"></span>
+  <span class="group"><button id="font-minus" type="button" aria-label="Giảm cỡ chữ">A−</button><button id="font-plus" type="button" aria-label="Tăng cỡ chữ">A+</button></span>
+  <button id="theme-btn" type="button" aria-label="Đổi giao diện">◐</button>
+</header>
+<div class="layout">
+<nav class="sidebar-toc" aria-label="Mục lục chương"><h2>Trong chương này</h2><ol><li class="l1"><a href="#p05-u050">Chương 3: Performance and Scalability</a></li><li class="l2"><a href="#p05-u059">Performance Impacts of Data Volume</a></li><li class="l2"><a href="#p05-u094">Performance Impacts of System Load</a></li><li class="l2"><a href="#p05-u108">Response Time and Throughput</a></li></ol></nav>
+<main class="book"><div class="prose">
+<header class="chapter-head" id="p05-u050"><p class="eyebrow">Chương 3</p><h1>Performance and Scalability</h1></header>
+<div class="para" id="p05-u052"><p>Chương này nói về performance và scalability của database.</p></div>
+<div class="para" id="p05-u053"><p>Trong ngữ cảnh này, tôi dùng định nghĩa sau cho scalability:</p></div>
+<blockquote><p>Scalability là khả năng của một system, network hoặc process xử lý một lượng công việc ngày càng tăng theo cách có năng lực,</p>
+<p>hoặc</p>
+<p>scalability để đáp ứng mức tăng trưởng đó.</p>
+<p>—Wikipedia</p></blockquote>
+<div class="para" id="p05-u055"><p>Bạn thấy rằng thực ra có hai định nghĩa. Định nghĩa thứ nhất nói về tác động của load tăng lên một system, còn định nghĩa thứ hai nói về việc scale system để xử lý nhiều load hơn.</p></div>
+<div class="para" id="p05-u056"><p>Định nghĩa thứ hai phổ biến hơn nhiều so với định nghĩa thứ nhất. Mỗi khi ai đó nói về scalability, gần như lúc nào họ cũng nói về việc dùng thêm hardware. Scale-up và scale-out là hai keyword tương ứng, gần đây được bổ sung bởi những buzzword mới như web-scale.</p></div>
+<div class="para" id="p05-u057"><p>Nói rộng ra, scalability nói về tác động performance của các thay đổi trong môi trường. Hardware chỉ là một parameter môi trường có thể thay đổi. Chương này cũng đề cập đến các parameter khác như data volume và system load.</p></div>
+<div class="footnotes"><p>1 <a href="http://en.wikipedia.org/wiki/Scalability">http://en.wikipedia.org/wiki/Scalability</a></p></div>
+<h2 id="p05-u059">Performance Impacts of Data Volume<a class="anchor" href="#p05-u059" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p05-u060"><p>Lượng data được lưu trong database có ảnh hưởng lớn đến performance. Thông thường người ta chấp nhận rằng query sẽ chậm hơn khi database có thêm data. Nhưng performance bị ảnh hưởng nhiều đến mức nào nếu data volume tăng gấp đôi? Và làm thế nào để cải thiện tỷ lệ này? Đây là những câu hỏi then chốt khi bàn về database scalability.</p></div>
+<div class="para" id="p05-u061"><p>Để làm ví dụ, chúng ta phân tích response time của query sau khi dùng hai index khác nhau. Tạm thời chưa biết các index definition — chúng sẽ được tiết lộ trong quá trình thảo luận.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT count(*)
+  FROM scale_data
+ WHERE section = ?
+   AND id2 = ?</code></pre></div>
+<div class="para" id="p05-u063"><p>Column <code class="id">SECTION</code> có một mục đích đặc biệt trong query này: nó kiểm soát data volume. <code class="id">SECTION</code> càng lớn thì query càng select nhiều row. Figure 3.1 cho thấy response time với một <code class="id">SECTION</code> nhỏ.</p></div>
+<figure class="fig" id="fig-3-1"><figcaption>Figure 3.1. So sánh performance</figcaption><div class="img-wrap"><img src="assets/img/p05-u065.png" alt="Figure 3.1. So sánh performance" loading="lazy"></div></figure>
+<div class="para" id="p05-u066"><p>Có khác biệt đáng kể về performance giữa hai variant của index. Cả hai response time vẫn thấp hơn nhiều so với một phần mười giây, nên trong hầu hết trường hợp query chậm hơn có lẽ vẫn đủ nhanh. Tuy nhiên, biểu đồ performance chỉ cho thấy một test point. Bàn về scalability nghĩa là phải xem tác động performance khi thay đổi các parameter môi trường — chẳng hạn data volume.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Scalability cho thấy dependency của performance vào các factor như data volume.</p>
+<p>Một performance value chỉ là một data point trên scalability chart.</p></aside>
+<div class="para" id="p05-u068"><p>Figure 3.2 cho thấy response time theo số <code class="id">SECTION</code> — tức là theo data volume đang tăng.</p></div>
+<figure class="fig" id="fig-3-2"><figcaption>Figure 3.2. Scalability theo Data Volume</figcaption><div class="img-wrap"><img src="assets/img/p05-u070.png" alt="Figure 3.2. Scalability theo Data Volume" loading="lazy"></div></figure>
+<div class="para" id="p05-u071"><p>Biểu đồ cho thấy response time tăng với cả hai index. Ở phía bên phải biểu đồ, khi data volume cao gấp một trăm lần, query nhanh hơn cần thời gian lâu hơn ban đầu hơn hai lần, trong khi response time của query chậm hơn tăng gấp 20 lần lên hơn một giây.</p></div>
+<div class="para" id="p05-u072"><p>Response time của một SQL query phụ thuộc vào nhiều factor. Data volume là một trong số đó. Nếu query đủ nhanh trong một số điều kiện test nhất định, điều đó không có nghĩa là nó sẽ đủ nhanh trong production. Điều này đặc biệt đúng với môi trường development chỉ có một phần nhỏ data so với production system.</p></div>
+<div class="para" id="p05-u073"><p>Tuy nhiên, query chậm hơn khi data volume tăng không có gì bất ngờ. Điều hơi bất ngờ là khoảng cách lớn giữa hai index. Lý do khiến tốc độ tăng khác nhau là gì?</p></div>
+<div class="para" id="p05-u074"><p>So sánh hai execution plan sẽ giúp tìm ra lý do khá dễ dàng.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>------------------------------------------------------
+| Id | Operation         | Name       | Rows | Cost |
+------------------------------------------------------
+| 0 | SELECT STATEMENT |              |     1 | 972 |
+| 1 | SORT AGGREGATE     |            |     1 |      |
+|* 2 |   INDEX RANGE SCAN| SCALE_SLOW | 3000 | 972 |
+------------------------------------------------------</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>------------------------------------------------------
+| Id | Operation         | Name       | Rows | Cost |
+------------------------------------------------------
+| 0 | SELECT STATEMENT |              |     1 | 972 |
+| 1 | SORT AGGREGATE |                |     1 |      |
+|* 2 |   INDEX RANGE SCAN| SCALE_SLOW | 3000 | 972 |
+------------------------------------------------------
+
+Predicate Information (identified by operation id):
+   2 - access("SECTION"=TO_NUMBER(:A))
+       filter("ID2"=TO_NUMBER(:B))
+------------------------------------------------------
+| Id   Operation         | Name       | Rows | Cost |
+------------------------------------------------------
+| 0 | SELECT STATEMENT |              |     1 | 13 |
+| 1 | SORT AGGREGATE |                |     1 |      |
+|* 2 |   INDEX RANGE SCAN| SCALE_FAST | 3000 | 13 |
+------------------------------------------------------</code></pre></div>
+<div class="para" id="p05-u077"><p>Các execution plan gần như giống hệt nhau — chúng chỉ dùng một index khác nhau. Dù cost value phản ánh khác biệt về tốc độ, lý do không thể nhìn thấy trong execution plan.</p></div>
+<div class="para" id="p05-u078"><p>Có vẻ chúng ta đang gặp một “slow index experience”; query chậm dù có dùng index. Tuy vậy, chúng ta không còn tin vào myth về “broken index”. Thay vào đó, hãy nhớ hai yếu tố khiến index lookup chậm: (1) table access và (2) scan một index range rộng.</p></div>
+<div class="para" id="p05-u079"><p>Không execution plan nào hiển thị operation <code class="id">TABLE ACCESS</code> BY <code class="id">INDEX ROWID</code>, nên một execution plan chắc chắn phải scan một index range rộng hơn execution plan kia. Vậy execution plan hiển thị index range được scan ở đâu? Tất nhiên là trong predicate information!</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Hãy chú ý đến predicate information.</p></aside>
+<div class="para" id="p05-u081"><p>Predicate information hoàn toàn không phải là detail không cần thiết có thể bỏ qua như ở trên. Execution plan không có predicate information là không đầy đủ. Điều đó có nghĩa bạn không thể thấy lý do khác biệt về performance trong các plan ở trên. Nếu xem execution plan đầy đủ, chúng ta sẽ thấy khác biệt.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>-----------------------------------------------------
+| Id | Operation         | Name       | Rows | Cost |
+-----------------------------------------------------
+| 0 | SELECT STATEMENT |              |     1 | 972 |
+| 1 | SORT AGGREGATE   |              |     1 |     |
+|* 2 | INDEX RANGE SCAN| SCALE_SLOW |  3000 | 972 |
+-----------------------------------------------------
+Predicate Information (identified by operation id):
+2 - access("SECTION"=TO_NUMBER(:A))
+filter("ID2"=TO_NUMBER(:B))</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>-----------------------------------------------------
+| Id | Operation         | Name       | Rows | Cost |
+-----------------------------------------------------
+| 0 | SELECT STATEMENT |              |     1 | 13 |
+| 1 | SORT AGGREGATE   |              |     1 |    |
+|* 2 | INDEX RANGE SCAN| SCALE_FAST | 3000 | 13 |
+-----------------------------------------------------
+Predicate Information (identified by operation id):
+2 - access("SECTION"=TO_NUMBER(:A) AND "ID2"=TO_NUMBER(:B))</code></pre></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Note</span></p><p>Execution plan đã được đơn giản hóa để dễ hiểu. Appendix ở page 170 giải thích chi tiết phần “Predicate Information” trong Oracle execution plan.</p></aside>
+<div class="para" id="p05-u085"><p>Khác biệt giờ đã rõ: khi dùng index <code class="id">SCALE_SLOW</code>, chỉ condition trên <code class="id">SECTION</code> là access predicate. Database đọc mọi row trong section rồi loại những row không match filter predicate trên <code class="id">ID2</code>. Response time tăng theo số row trong section. Với index <code class="id">SCALE_FAST</code>, database dùng mọi condition làm access predicate. Response time tăng theo số row được select.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Filter predicate giống như thiết bị nổ chưa kích hoạt. Chúng có thể phát nổ bất kỳ lúc nào.</p></aside>
+<div class="para" id="p05-u087"><p>Mảnh ghép cuối cùng trong câu đố là index definition. Chúng ta có thể suy ra index definition từ execution plan không?</p></div>
+<div class="para" id="p05-u088"><p>Definition của index <code class="id">SACLE_SLOW</code> phải bắt đầu bằng column <code class="id">SECTION</code> — nếu không, nó không thể được dùng làm access predicate. Condition trên <code class="id">ID2</code> không phải access predicate — vì vậy nó không thể đứng sau <code class="id">SECTION</code> trong index definition. Điều đó có nghĩa index <code class="id">SACLE_SLOW</code> phải có tối thiểu ba column, trong đó <code class="id">SECTION</code> là column đầu tiên và <code class="id">ID2</code> không phải column thứ hai. Đó chính xác là index definition được dùng cho test này:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX scale_slow ON scale_data (section, id1, id2);</code></pre></div>
+<div class="para" id="p05-u090"><p>Database không thể dùng <code class="id">ID2</code> làm access predicate vì column <code class="id">ID1</code> đứng ở vị trí thứ hai.</p></div>
+<div class="para" id="p05-u091"><p>Definition của index <code class="id">SCALE_FAST</code> phải có column <code class="id">SECTION</code> và <code class="id">ID2</code> ở hai vị trí đầu vì cả hai đều được dùng làm access predicate. Tuy vậy, chúng ta không thể nói gì về thứ tự của chúng. Index được dùng cho test bắt đầu bằng column <code class="id">SECTION</code> và có thêm column <code class="id">ID1</code> ở vị trí thứ ba:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX scale_fast ON scale_data (section, id2, id1);</code></pre></div>
+<div class="para" id="p05-u093"><p>Column <code class="id">ID1</code> chỉ được thêm vào để index này có cùng kích thước với <code class="id">SCALE_SLOW</code> — nếu không, bạn có thể nghĩ rằng kích thước là nguyên nhân tạo ra khác biệt.</p></div>
+<h2 id="p05-u094">Performance Impacts of System Load<a class="anchor" href="#p05-u094" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p05-u095"><p>Việc cân nhắc cách định nghĩa multi-column index thường dừng lại ngay khi index được dùng cho query đang tune. Tuy nhiên, optimizer không dùng một index vì đó là index “đúng” cho query, mà vì nó hiệu quả hơn full table scan. Điều đó không có nghĩa nó là index tối ưu cho query.</p></div>
+<div class="para" id="p05-u096"><p>Ví dụ trước cho thấy khó nhận ra column order sai trong execution plan. Predicate information thường bị ẩn khá kỹ, nên bạn phải chủ động tìm nó để kiểm tra index usage có tối ưu hay không.</p></div>
+<div class="para" id="p05-u097"><p>Chẳng hạn, SQL Server Management Studio chỉ hiển thị predicate information dưới dạng tool tip khi di chuột lên index operation (“hover”). Execution plan sau dùng index <code class="id">SCALE_SLOW</code>; vì vậy nó hiển thị condition trên <code class="id">ID2</code> dưới dạng filter predicate (chỉ là “Predicate”, không có Seek).</p></div>
+<figure class="fig" id="fig-3-3"><figcaption>Figure 3.3. Predicate Information dưới dạng Tool Tip</figcaption><div class="img-wrap"><img src="assets/img/p05-u099.png" alt="Figure 3.3. Predicate Information dưới dạng Tool Tip" loading="lazy"></div></figure>
+<div class="para" id="p05-u100"><p>Lấy predicate information từ execution plan của MySQL hoặc PostgreSQL thậm chí còn awkward hơn. Appendix A ở page 165 có chi tiết.</p></div>
+<div class="para" id="p05-u101"><p>Dù predicate information có vẻ không đáng kể đến đâu trong execution plan, nó vẫn có ảnh hưởng lớn đến performance — đặc biệt khi system phát triển. Hãy nhớ rằng không chỉ data volume tăng mà access rate cũng tăng. Đây là một parameter khác của scalability function.</p></div>
+<div class="para" id="p05-u102"><p>Figure 3.4 biểu diễn response time theo access rate — data volume giữ nguyên. Nó cho thấy execution time của cùng query như trước và luôn dùng section có data volume lớn nhất. Điều đó có nghĩa point cuối cùng của Figure 3.2 ở page 81 tương ứng với point đầu tiên trong chart này.</p></div>
+<figure class="fig" id="fig-3-4"><figcaption>Figure 3.4. Scalability theo System Load</figcaption><div class="img-wrap"><img src="assets/img/p05-u104.png" alt="Figure 3.4. Scalability theo System Load" loading="lazy"></div></figure>
+<div class="para" id="p05-u105"><p>Đường nét đứt biểu diễn response time khi dùng index <code class="id">SCALE_SLOW</code>. Nó tăng lên đến 32 giây khi có 25 query chạy đồng thời. So với response time không có background load — như có thể xảy ra trong môi trường development — thời gian này lâu hơn 30 lần. Ngay cả khi có full copy của production database trong môi trường development, background load vẫn có thể khiến query chạy chậm hơn nhiều trong production.</p></div>
+<div class="para" id="p05-u106"><p>Đường liền biểu diễn response time khi dùng index <code class="id">SCALE_FAST</code> — index này không có filter predicate nào. Response time vẫn thấp hơn hai giây ngay cả khi có 25 query chạy đồng thời.</p></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Note</span></p><p>Kiểm tra execution plan cẩn thận tạo ra độ tin cậy cao hơn benchmark hời hợt.</p>
+<p>Một full stress test vẫn đáng làm — nhưng cost rất cao.</p></aside>
+<h2 id="p05-u108">Response Time and Throughput<a class="anchor" href="#p05-u108" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p05-u109"><p>Response time đáng ngờ thường bị xem nhẹ trong quá trình development. Phần lớn là vì chúng ta kỳ vọng “production hardware mạnh hơn” sẽ mang lại performance tốt hơn. Nhưng thường thì ngược lại, vì production infrastructure phức tạp hơn và tích lũy những latency không xuất hiện trong môi trường development. Ngay cả khi test trên infrastructure tương đương production, background load vẫn có thể gây ra response time khác nhau. Phần tiếp theo sẽ cho thấy nhìn chung không hợp lý khi kỳ vọng response nhanh hơn từ “hardware lớn hơn”.</p></div>
+<div class="para" id="p05-u111"><p>Hardware lớn hơn không phải lúc nào cũng nhanh hơn — nhưng thường có thể xử lý nhiều load hơn. Hardware lớn hơn giống một xa lộ rộng hơn là một chiếc xe nhanh hơn: bạn không thể lái nhanh hơn — thực ra là không được phép — chỉ vì có thêm nhiều làn đường. Đó là lý do thêm hardware không tự động cải thiện SQL query chậm.</p></div>
+<div class="para" id="p05-u112"><p>Chúng ta không còn ở những năm 1990 nữa. Khi đó, computing power của single-core <code class="id">CPU</code> tăng rất nhanh. Phần lớn vấn đề response time biến mất trên hardware mới chỉ vì <code class="id">CPU</code> được cải thiện. Nó giống như các model xe mới liên tục chạy nhanh gấp đôi model cũ mỗi năm! Tuy nhiên, single-core <code class="id">CPU</code> power đã chạm giới hạn trong vài năm đầu của thế kỷ 21. Trục này gần như không còn cải thiện nữa. Để tiếp tục tạo ra <code class="id">CPU</code> ngày càng mạnh, vendor phải chuyển sang chiến lược multi-core. Dù cho phép nhiều task chạy đồng thời, cách này không cải thiện performance nếu chỉ có một task. Performance có nhiều hơn một dimension.</p></div>
+<div class="para" id="p05-u113"><p>Scaling theo chiều ngang (thêm server) cũng có những giới hạn tương tự. Dù nhiều server có thể xử lý nhiều request hơn, chúng không cải thiện response time của một query cụ thể. Để tìm kiếm nhanh hơn, bạn cần một search tree hiệu quả — kể cả trong các hệ thống non-relational như CouchDB và MongoDB.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Indexing đúng cách là phương pháp tốt nhất để giảm query response time — trong cả relational SQL database lẫn non-relational system.</p></aside>
+<div class="para" id="p05-u115"><p>Indexing đúng cách nhằm khai thác trọn vẹn scalability dạng logarithmic của B-tree index. Đáng tiếc là indexing thường được thực hiện rất cẩu thả. Chart trong “Performance Impacts of Data Volume” cho thấy rõ tác động của việc indexing cẩu thả.</p></div>
+<figure class="fig" id="fig-3-5"><figcaption>Figure 3.5. Response Time theo Data Volume</figcaption><div class="img-wrap"><img src="assets/img/p05-u117.png" alt="Figure 3.5. Response Time theo Data Volume" loading="lazy"></div></figure>
+<div class="para" id="p05-u118"><p>Khác biệt response time giữa một index cẩu thả và một index đúng cách thật đáng kinh ngạc. Gần như không thể bù đắp tác động này bằng cách thêm hardware. Ngay cả khi bạn giảm được response time bằng hardware, vẫn cần đặt câu hỏi liệu đó có phải giải pháp tốt nhất cho vấn đề này hay không.</p></div>
+<div class="para" id="p05-u119"><p>Nhiều hệ thống được gọi là NoSQL vẫn tuyên bố có thể giải quyết mọi performance problem bằng horizontal scalability. Tuy nhiên, scalability này phần lớn bị giới hạn ở write operation và được thực hiện bằng eventual consistency model. SQL database dùng strict consistency model làm write operation chậm hơn, nhưng điều đó không nhất thiết đồng nghĩa với throughput kém. Hãy tìm hiểu thêm trong box có tiêu đề “Eventual Consistency and the <code class="id">CAP</code> Theorem”.</p></div>
+<div class="para" id="p05-u120"><p>Thêm hardware thường không cải thiện response time. Thực tế, nó thậm chí có thể làm system chậm hơn vì complexity tăng thêm có thể tích lũy nhiều latency hơn. Network latency sẽ không thành vấn đề nếu application và database chạy trên cùng một computer, nhưng setup này khá hiếm trong production environment, nơi database và application thường được cài trên hardware riêng. Security policy thậm chí có thể yêu cầu firewall giữa application server và database — thường làm network latency tăng gấp đôi. Infrastructure càng phức tạp thì càng tích lũy nhiều latency và response càng chậm. Tác động này thường dẫn đến quan sát ngược với trực giác: production hardware đắt tiền lại chậm hơn môi trường desktop PC rẻ tiền dùng cho development.</p></div>
+<h4 id="p05-u121">Eventual Consistency and the <code class="id">CAP</code> Theorem<a class="anchor" href="#p05-u121" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p05-u122"><p>Duy trì strict consistency trong một distributed system đòi hỏi synchronous coordination của mọi write operation giữa các node. Nguyên tắc này có hai side effect khó chịu: (1) thêm latency và làm response time tăng; (2) làm giảm overall availability vì nhiều member phải cùng available tại một thời điểm để hoàn thành write operation.</p></div>
+<div class="para" id="p05-u123"><p>Distributed SQL database thường bị nhầm với computer cluster dùng shared storage system hoặc master-slave replication. Thực tế, distributed database giống một web shop tích hợp với <code class="id">ERP</code> system hơn — thường là hai product khác nhau của hai vendor khác nhau. Consistency giữa hai system vẫn là một mục tiêu đáng mong muốn và thường được đạt bằng two-phase commit (2PC) protocol. Protocol này thiết lập global transaction mang lại behavior “all-or-nothing” quen thuộc trên nhiều database. Chỉ có thể hoàn thành global transaction nếu mọi member tham gia đều available. Vì vậy, nó làm giảm overall availability.</p></div>
+<div class="para" id="p05-u124"><p>Distributed system càng có nhiều node thì strict consistency càng trở nên khó khăn. Duy trì strict consistency gần như không thể nếu system có nhiều hơn một vài node. Ngược lại, bỏ strict consistency giải quyết vấn đề availability và loại bỏ response time tăng thêm. Ý tưởng cơ bản là tái lập global consistency sau khi hoàn thành write operation trên một subset của các node. Cách tiếp cận này chỉ còn một vấn đề chưa giải quyết: không thể ngăn conflict nếu hai node chấp nhận các thay đổi mâu thuẫn. Consistency cuối cùng đạt được bằng cách xử lý conflict, không phải ngăn conflict. Trong ngữ cảnh đó, consistency có nghĩa mọi node có cùng data — không nhất thiết là data đúng hoặc tốt nhất.</p></div>
+<div class="para" id="p05-u125"><p><code class="id">CAP</code> Theorem của Brewer mô tả các dependency tổng quát giữa Consistency, Availability và Partition tolerance.</p></div>
+<div class="para" id="p05-u126"><p>Một latency khác rất quan trọng là disk seek time. Spinning hard disk drive (<code class="id">HDD</code>) cần khá nhiều thời gian để di chuyển các bộ phận cơ học đến vị trí có thể đọc data được yêu cầu — thường là vài millisecond. Latency này xuất hiện bốn lần khi traverse một B-tree bốn level — tổng cộng vài chục millisecond. Dù đó là cả một “thế kỷ” đối với computer, nó vẫn thấp hơn rất nhiều so với ngưỡng nhận biết của chúng ta… nếu chỉ xảy ra một lần. Tuy nhiên, một SQL statement rất dễ trigger hàng trăm hoặc thậm chí hàng nghìn disk seek, đặc biệt khi kết hợp nhiều table bằng join operation. Dù caching giảm mạnh vấn đề và công nghệ mới như <code class="id">SSD</code> giảm seek time một order of magnitude, join vẫn thường bị cho là chậm. Vì vậy, chương tiếp theo sẽ giải thích cách dùng index để join table hiệu quả.</p></div>
+<h4 id="p05-u127">Solid State Disks (<code class="id">SSD</code>) and Caching<a class="anchor" href="#p05-u127" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p05-u128"><p>Solid State Disk (<code class="id">SSD</code>) là công nghệ mass storage không có bộ phận chuyển động. Seek time điển hình của <code class="id">SSD</code> nhanh hơn seek time của <code class="id">HDD</code> một order of magnitude. <code class="id">SSD</code> xuất hiện trong enterprise storage khoảng năm 2010 nhưng do cost cao và lifetime có giới hạn, chúng chưa thường được dùng cho database.</p></div>
+<div class="para" id="p05-u129"><p>Tuy nhiên, database cache data được access thường xuyên trong main memory. Điều này đặc biệt hữu ích với data cần cho mọi index access — chẳng hạn index root node. Database có thể cache toàn bộ các index được dùng thường xuyên, nhờ đó một index lookup không trigger dù chỉ một disk seek.</p></div>
+</div>
+<nav class="pager"><a class="prev" href="chap_02.html"><small>← Trước</small>Chương 2 — Where Clause</a><a class="next" href="chap_04.html"><small>Sau →</small>Chương 4 — Join Operation</a></nav>
+</main>
+</div>
+</body>
+</html>

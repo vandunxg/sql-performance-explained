@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chương 6 — Sorting và Grouping — SQL Performance Explained (VI)</title>
+<script>
+(function(){try{var t=localStorage.getItem("spe-theme");if(t&&t!=="auto")document.documentElement.setAttribute("data-theme",t);
+var s=parseFloat(localStorage.getItem("spe-scale"));if(s)document.documentElement.style.setProperty("--font-scale",s);}catch(e){}})();
+</script>
+<link rel="stylesheet" href="assets/css/book.css">
+<script src="assets/js/book.js" defer></script>
+</head>
+<body>
+<div class="progress"></div>
+<header class="topbar">
+  <button id="toc-toggle" type="button" aria-label="Mục lục chương">☰</button>
+  <a class="brand" href="index.html">SQL Performance Explained</a>
+  <span class="crumb">/ Chương 6 — Sorting và Grouping</span>
+  <span class="spacer"></span>
+  <span class="group"><button id="font-minus" type="button" aria-label="Giảm cỡ chữ">A−</button><button id="font-plus" type="button" aria-label="Tăng cỡ chữ">A+</button></span>
+  <button id="theme-btn" type="button" aria-label="Đổi giao diện">◐</button>
+</header>
+<div class="layout">
+<nav class="sidebar-toc" aria-label="Mục lục chương"><h2>Trong chương này</h2><ol><li class="l1"><a href="#p07-u103">Chương 6: Sorting and Grouping</a></li><li class="l2"><a href="#p07-u111">Indexing Order By</a></li><li class="l2"><a href="#p07-u141">Indexing ASC, DESC and NULLS FIRST/LAST</a></li><li class="l2"><a href="#p08-u027">Indexing Group By</a></li></ol></nav>
+<main class="book"><div class="prose">
+<header class="chapter-head" id="p07-u103"><p class="eyebrow">Chương 6</p><h1>Sorting and Grouping</h1></header>
+<div class="para" id="p07-u105"><p>Sorting là một operation tiêu tốn rất nhiều resource. Nó cần khá nhiều <code class="id">CPU</code> time, nhưng vấn đề chính là database phải tạm thời buffer result. Sau cùng, sort operation phải đọc toàn bộ input trước khi có thể tạo output đầu tiên. Sort operation không thể execute theo pipelined manner — điều này có thể trở thành vấn đề với data set lớn.</p></div>
+<div class="para" id="p07-u106"><p>Index cung cấp một ordered representation của indexed data: principle này đã được mô tả trong Chapter 1. Ta cũng có thể nói index lưu data theo dạng presorted. Thực tế index được sort giống như khi dùng index definition trong <code class="kw">order by</code> clause. Vì vậy, không có gì bất ngờ khi ta có thể dùng index để tránh sort operation nhằm đáp ứng <code class="kw">order by</code> clause.</p></div>
+<div class="para" id="p07-u107"><p>Trớ trêu là <code class="id">INDEX RANGE SCAN</code> cũng trở nên inefficient với data set lớn — đặc biệt khi theo sau là table access. Điều này có thể triệt tiêu phần tiết kiệm do tránh sort operation. Trong trường hợp này, <code class="id">FULL TABLE SCAN</code> với explicit sort operation thậm chí có thể nhanh hơn. Một lần nữa, công việc của optimizer là đánh giá các execution plan khác nhau và chọn plan tốt nhất.</p></div>
+<div class="para" id="p07-u108"><p>Indexed <code class="kw">order by</code> execution không chỉ tiết kiệm sorting effort; nó còn có thể trả về các result đầu tiên mà không cần xử lý toàn bộ input data. Vì vậy <code class="kw">order by</code> được execute theo pipelined manner. Chapter 7, “Partial Results”, giải thích cách khai thác pipelined execution để implement pagination query hiệu quả. Điều này khiến pipelined <code class="kw">order by</code> quan trọng đến mức tôi gọi nó là power thứ ba của indexing.</p></div>
+<div class="para" id="p07-u109"><p>Chapter này giải thích cách dùng index cho pipelined <code class="kw">order by</code> execution. Để làm vậy, chúng ta phải đặc biệt chú ý đến tương tác với <code class="kw">where</code> clause cũng như modifier <code class="id">ASC</code> và <code class="id">DESC</code>. Chapter kết thúc bằng việc áp dụng các kỹ thuật này cho <code class="kw">group by</code> clause.</p></div>
+<h2 id="p07-u111">Indexing Order By<a class="anchor" href="#p07-u111" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p07-u112"><p>SQL query có <code class="kw">order by</code> clause không cần explicit sort result nếu relevant index đã trả về row theo đúng order cần thiết. Nghĩa là cùng index được dùng cho <code class="kw">where</code> clause cũng phải cover <code class="kw">order by</code> clause.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT sale_date, product_id, quantity
+  FROM sales
+ WHERE sale_date = TRUNC(sysdate) - INTERVAL '1' DAY
+ ORDER BY sale_date, product_id;</code></pre></div>
+<div class="para" id="p07-u114"><p>Đã có index trên <code class="id">SALE_DATE</code> có thể dùng cho <code class="kw">where</code> clause. Tuy nhiên, database phải thực hiện explicit sort operation để đáp ứng <code class="kw">order by</code> clause:</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id | Operation                    | Name       | Rows | Cost |
+---------------------------------------------------------------
+| 0 | SELECT STATEMENT             |            | 320 |    18 |
+| 1 | SORT ORDER BY                |            | 320 |    18 |
+| 2 |   TABLE ACCESS BY INDEX ROWID| SALES      | 320 |    17 |
+|*3 |    INDEX RANGE SCAN          | SALES_DATE | 320 |     3 |
+---------------------------------------------------------------</code></pre></div>
+<div class="para" id="p07-u116"><p><code class="id">INDEX RANGE SCAN</code> vốn đã trả result theo index order. Để tận dụng điều này, chúng ta chỉ cần extend index definition để nó tương ứng với <code class="kw">order by</code> clause:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>  DROP INDEX sales_date;
+CREATE INDEX sales_dt_pr ON sales (sale_date, product_id);</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id | Operation                   | Name        | Rows | Cost |
+---------------------------------------------------------------
+| 0 | SELECT STATEMENT            |             | 320 | 300 |
+| 1 | TABLE ACCESS BY INDEX ROWID| SALES        | 320 | 300 |
+|*2 |   INDEX RANGE SCAN          | SALES_DT_PR | 320 |     4 |
+---------------------------------------------------------------</code></pre></div>
+<div class="para" id="p07-u120"><p>Sort operation <code class="id">SORT ORDER</code> BY biến mất khỏi execution plan dù query vẫn có <code class="kw">order by</code> clause. Database khai thác index order và bỏ qua explicit sort operation.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Nếu index order tương ứng với <code class="kw">order by</code> clause, database có thể bỏ qua explicit sort operation.</p></aside>
+<div class="para" id="p07-u122"><p>Dù execution plan mới có ít operation hơn, cost value lại tăng đáng kể vì clustering factor của index mới tệ hơn (xem “Automatically Optimized Clustering Factor” ở page 133). Ở thời điểm này chỉ cần ghi nhận rằng cost value không phải lúc nào cũng là indicator tốt cho execution effort.</p></div>
+<div class="para" id="p07-u123"><p>Với optimization này, chỉ cần scanned index range được sort theo <code class="kw">order by</code> clause. Vì vậy, optimization cũng hoạt động trong ví dụ cụ thể này khi chỉ sort theo <code class="id">PRODUCT_ID</code>:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT sale_date, product_id, quantity
+  FROM sales
+ WHERE sale_date = TRUNC(sysdate) - INTERVAL '1' DAY
+ ORDER BY product_id;</code></pre></div>
+<div class="para" id="p07-u125"><p>Trong Figure 6.1, ta thấy <code class="id">PRODUCT_ID</code> là sort criterion duy nhất liên quan trong scanned index range. Do đó index order tương ứng với <code class="kw">order by</code> clause trong index range này, nên database có thể bỏ qua sort operation.</p></div>
+<figure class="fig" id="fig-6-1"><figcaption>Figure 6.1. Sort Order trong Relevant Index Range</figcaption><div class="img-wrap"><img src="assets/img/p07-u127.png" alt="Figure 6.1. Sort Order trong Relevant Index Range" loading="lazy"></div></figure>
+<div class="para" id="p07-u129"><p>Optimization này có thể gây behavior bất ngờ khi mở rộng scanned index range:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT sale_date, product_id, quantity
+  FROM sales
+ WHERE sale_date &gt;= TRUNC(sysdate) - INTERVAL '1' DAY
+ ORDER BY product_id;</code></pre></div>
+<div class="para" id="p07-u131"><p>Query này không lấy sale của yesterday mà lấy tất cả sale kể từ yesterday. Nghĩa là nó cover nhiều ngày và scan một index range không chỉ được sort theo <code class="id">PRODUCT_ID</code>. Nếu nhìn lại Figure 6.1 và mở rộng scanned index range xuống dưới, ta sẽ thấy lại có các <code class="id">PRODUCT_ID</code> value nhỏ hơn. Vì vậy database phải dùng explicit sort operation để đáp ứng <code class="kw">order by</code> clause.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id |Operation                    | Name        | Rows | Cost |
+---------------------------------------------------------------
+| 0 |SELECT STATEMENT             |             | 320 | 301 |
+| 1 | SORT ORDER BY               |             | 320 | 301 |
+| 2 | TABLE ACCESS BY INDEX ROWID| SALES        | 320 | 300 |
+|*3 |   INDEX RANGE SCAN          | SALES_DT_PR | 320 |     4 |
+---------------------------------------------------------------</code></pre></div>
+<div class="para" id="p07-u133"><p>Nếu database dùng sort operation dù bạn kỳ vọng pipelined execution, có thể có 2 lý do: (1) execution plan với explicit sort operation có cost value tốt hơn; (2) index order trong scanned index range không tương ứng với <code class="kw">order by</code> clause.</p></div>
+<div class="para" id="p07-u134"><p>Một cách đơn giản để phân biệt 2 trường hợp là dùng full index definition trong <code class="kw">order by</code> clause — tức là điều chỉnh query theo index để loại bỏ nguyên nhân thứ hai. Nếu database vẫn dùng explicit sort operation, optimizer ưu tiên plan này do cost value; nếu không, database không thể dùng index cho <code class="kw">order by</code> clause ban đầu.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Dùng full index definition trong <code class="kw">order by</code> clause để tìm lý do của explicit sort operation.</p></aside>
+<div class="para" id="p07-u137"><p>Trong cả 2 trường hợp, bạn có thể tự hỏi liệu có thể đạt pipelined <code class="kw">order by</code> execution hay không và đạt bằng cách nào. Để làm vậy, bạn có thể execute query với full index definition trong <code class="kw">order by</code> clause rồi inspect result. Bạn thường sẽ nhận ra perception của mình về index là sai, và index order thực tế không đúng như <code class="kw">order by</code> clause ban đầu yêu cầu, nên database không thể dùng index để tránh sort operation.</p></div>
+<div class="para" id="p07-u138"><p>Nếu optimizer ưu tiên explicit sort operation vì cost value, thường là do optimizer chọn execution plan tốt nhất cho full execution của query. Nói cách khác, optimizer chọn execution plan nhanh nhất để lấy record cuối cùng. Nếu database nhận ra application chỉ fetch một vài row đầu, nó có thể chuyển sang ưu tiên indexed <code class="kw">order by</code>. Chapter 7, “Partial Results”, giải thích các optimization method tương ứng.</p></div>
+<aside class="callout sidebar "><p class="title"><span>Automatically Optimized Clustering Factor</span></p><p>Database Oracle giữ clustering factor ở mức tối thiểu bằng cách xét <code class="id">ROWID</code> trong index order. Khi 2 index entry có cùng key value, <code class="id">ROWID</code> quyết định order cuối cùng của chúng. Vì vậy index cũng được order theo table order và có clustering factor nhỏ nhất có thể, vì <code class="id">ROWID</code> biểu diễn physical address của table row.</p>
+<p>Khi thêm một column khác vào index, bạn <code class="kw">insert</code> một sort criterion mới trước <code class="id">ROWID</code>. Database có ít tự do hơn trong việc align index entry theo table order, nên index clustering factor chỉ có thể xấu đi.</p>
+<p>Dù vậy, index order vẫn có thể tương ứng gần đúng với table order. Sale của một ngày có lẽ vẫn được cluster cùng nhau trong table cũng như trong index — dù sequence của chúng không còn hoàn toàn giống nhau. Database phải đọc table block nhiều lần khi dùng index <code class="id">SALE_DT_PR</code> — nhưng đó vẫn là các table block giống như trước. Do data thường xuyên được access được cache, performance impact có thể thấp hơn đáng kể so với mức cost value thể hiện.</p></aside>
+<h2 id="p07-u141">Indexing <code class="id">ASC</code>, <code class="id">DESC</code> and <code class="id">NULLS FIRST</code>/<code class="id">LAST</code><a class="anchor" href="#p07-u141" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p07-u142"><p>Database có thể đọc index theo cả 2 direction. Điều đó có nghĩa pipelined <code class="kw">order by</code> cũng khả thi nếu scanned index range ở đúng order ngược với order được chỉ định trong <code class="kw">order by</code> clause. Dù modifier <code class="id">ASC</code> và <code class="id">DESC</code> trong <code class="kw">order by</code> clause có thể ngăn pipelined execution, hầu hết database cung cấp cách đơn giản để đổi index order, khiến index có thể dùng cho pipelined <code class="kw">order by</code>.</p></div>
+<div class="para" id="p07-u143"><p>Ví dụ sau dùng index theo reverse order. Nó trả về các sale kể từ yesterday, được order theo date giảm dần và <code class="id">PRODUCT_ID</code> giảm dần.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT sale_date, product_id, quantity
+  FROM sales
+ WHERE sale_date &gt;= TRUNC(sysdate) - INTERVAL '1' DAY
+ ORDER BY sale_date DESC, product_id DESC;</code></pre></div>
+<div class="para" id="p07-u145"><p>Execution plan cho thấy database đọc index theo descending direction.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id |Operation                    | Name        | Rows | Cost |
+---------------------------------------------------------------
+| 0 |SELECT STATEMENT             |             | 320 | 300 |
+| 1 | TABLE ACCESS BY INDEX ROWID | SALES       | 320 | 300 |
+|*2 | INDEX RANGE SCAN DESCENDING| SALES_DT_PR | 320 |      4 |
+---------------------------------------------------------------</code></pre></div>
+<div class="para" id="p07-u147"><p>Trong trường hợp này, database dùng index tree để tìm matching entry cuối cùng. Từ đó, nó đi theo leaf node chain “lên trên” như trong Figure 6.2. Sau cùng, đó là lý do database dùng doubly linked list để xây dựng leaf node chain.</p></div>
+<div class="para" id="p07-u148"><p>Đương nhiên, điều quan trọng là scanned index range phải ở đúng order ngược với order mà <code class="kw">order by</code> clause cần.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Database có thể đọc index theo cả 2 direction.</p></aside>
+<figure class="fig" id="fig-6-2"><figcaption>Figure 6.2. Reverse Index Scan</figcaption><div class="img-wrap"><img src="assets/img/p08-u003.png" alt="Figure 6.2. Reverse Index Scan" loading="lazy"></div></figure>
+<div class="para" id="p08-u004"><p>Ví dụ sau không đáp ứng prerequisite này vì nó trộn modifier <code class="id">ASC</code> và <code class="id">DESC</code> trong <code class="kw">order by</code> clause:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT sale_date, product_id, quantity
+  FROM sales
+ WHERE sale_date &gt;= TRUNC(sysdate) - INTERVAL '1' DAY
+ ORDER BY sale_date ASC, product_id DESC;</code></pre></div>
+<div class="para" id="p08-u006"><p>Query trước hết phải trả về các sale của yesterday theo thứ tự <code class="id">PRODUCT_ID</code> giảm dần, sau đó là các sale của today, cũng theo <code class="id">PRODUCT_ID</code> giảm dần. Figure 6.3 minh họa process này. Để lấy các sale theo đúng order yêu cầu, database sẽ phải “jump” trong lúc index scan.</p></div>
+<figure class="fig" id="fig-6-3"><figcaption>Figure 6.3. Impossible Pipelined <code class="kw">order by</code></figcaption><div class="img-wrap"><img src="assets/img/p08-u008.png" alt="Figure 6.3. Impossible Pipelined order by" loading="lazy"></div></figure>
+<div class="para" id="p08-u009"><p>Tuy nhiên, index không có link từ sale của yesterday có <code class="id">PRODUCT_ID</code> nhỏ nhất đến sale của today có <code class="id">PRODUCT_ID</code> lớn nhất. Vì vậy database không thể dùng index này để tránh explicit sort operation.</p></div>
+<div class="para" id="p08-u010"><p>Với những trường hợp như vậy, hầu hết database đều cung cấp một cách đơn giản để điều chỉnh index order theo <code class="kw">order by</code> clause. Cụ thể, bạn có thể dùng modifier <code class="id">ASC</code> và <code class="id">DESC</code> trong index declaration:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>    DROP INDEX sales_dt_pr;
+
+CREATE INDEX sales_dt_pr
+    ON sales (sale_date ASC, product_id DESC);</code></pre></div>
+<aside class="callout warning "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Warning</span></p><p>Database MySQL bỏ qua modifier <code class="id">ASC</code> và <code class="id">DESC</code> trong index definition.</p></aside>
+<div class="para" id="p08-u013"><p>Bây giờ index order tương ứng với <code class="kw">order by</code> clause nên database có thể bỏ qua sort operation:</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id | Operation                   | Name        | Rows | Cost |
+---------------------------------------------------------------
+| 0 | SELECT STATEMENT            |             | 320 | 301 |
+| 1 | TABLE ACCESS BY INDEX ROWID| SALES        | 320 | 301 |
+|*2 |   INDEX RANGE SCAN          | SALES_DT_PR | 320 |     4 |
+---------------------------------------------------------------</code></pre></div>
+<div class="para" id="p08-u015"><p>Figure 6.4 cho thấy index order mới. Việc thay đổi sort direction của column thứ hai thực chất đảo direction của các mũi tên trong figure trước. Nhờ vậy, mũi tên thứ nhất kết thúc tại nơi mũi tên thứ hai bắt đầu, khiến index có các row theo đúng order mong muốn.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Khi dùng các modifier <code class="id">ASC</code> và <code class="id">DESC</code> kết hợp trong <code class="kw">order by</code> clause, bạn cũng phải define index theo cách tương tự để có thể dùng index cho pipelined <code class="kw">order by</code>.</p>
+<p>Điều này không ảnh hưởng đến khả năng dùng index cho <code class="kw">where</code> clause.</p></aside>
+<figure class="fig" id="fig-6-4"><figcaption>Figure 6.4. Mixed-Order Index</figcaption><div class="img-wrap"><img src="assets/img/p08-u019.png" alt="Figure 6.4. Mixed-Order Index" loading="lazy"></div></figure>
+<div class="para" id="p08-u020"><p><code class="id">ASC</code>/<code class="id">DESC</code> indexing chỉ cần thiết khi sort từng column theo các direction đối nghịch nhau. Nó không cần thiết để đảo order của tất cả column vì database vẫn có thể đọc index theo descending order nếu cần — ngoại lệ duy nhất là secondary index trên index-organized table. Secondary index ngầm thêm clustering key vào index nhưng không cung cấp khả năng chỉ định sort order. Nếu cần sort clustering key theo descending order, bạn không còn lựa chọn nào khác ngoài việc sort tất cả column còn lại theo descending order. Khi đó database có thể đọc index theo reverse direction để lấy order mong muốn.</p></div>
+<div class="para" id="p08-u021"><p>Ngoài <code class="id">ASC</code> và <code class="id">DESC</code>, SQL standard còn định nghĩa hai modifier ít được biết đến cho <code class="kw">order by</code> clause: <code class="id">NULLS FIRST</code> và <code class="id">NULLS LAST</code>. Khả năng kiểm soát rõ ràng việc sort <code class="id">NULL</code> được đưa vào như một optional extension “gần đây” trong SQL:2003. Vì vậy, mức độ hỗ trợ giữa các database khá hạn chế. Điều này đặc biệt đáng lo vì standard không định nghĩa chính xác sort order của <code class="id">NULL</code>. Standard chỉ quy định tất cả <code class="id">NULL</code> phải nằm cạnh nhau sau khi sort, nhưng không nói chúng phải đứng trước hay sau các entry khác. Nói chính xác hơn, bạn cần chỉ định <code class="id">NULL</code> sorting cho mọi column có thể nhận <code class="id">NULL</code> trong <code class="kw">order by</code> clause để có behavior được định nghĩa rõ ràng.</p></div>
+<div class="para" id="p08-u022"><p>Tuy nhiên, thực tế là optional extension này chưa được SQL Server 2012 hoặc MySQL 5.6 implement. Ngược lại, Oracle database đã hỗ trợ <code class="id">NULLS</code> sorting từ trước khi nó được đưa vào standard, nhưng tính đến release 11g, Oracle không chấp nhận nó trong index definition. Vì vậy Oracle database không thể thực hiện pipelined <code class="kw">order by</code> khi sort với</p></div>
+<div class="para" id="p08-u023"><p><code class="id">NULLS FIRST</code>. Chỉ PostgreSQL database (từ release 8.3) hỗ trợ modifier <code class="id">NULLS</code> trong cả <code class="kw">order by</code> clause và index definition.</p></div>
+<div class="para" id="p08-u024"><p>Overview sau đây tóm tắt các feature được những database khác nhau cung cấp.</p></div>
+<figure class="fig" id="fig-6-5"><figcaption>Figure 6.5. Database/Feature Matrix</figcaption><div class="img-wrap"><img src="assets/img/p08-u026.png" alt="Figure 6.5. Database/Feature Matrix" loading="lazy"></div></figure>
+<h2 id="p08-u027">Indexing Group By<a class="anchor" href="#p08-u027" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p08-u029"><p>SQL database dùng hai <code class="kw">group by</code> algorithm hoàn toàn khác nhau. Algorithm thứ nhất là hash algorithm, aggregate các input record trong một temporary hash table. Sau khi xử lý toàn bộ input record, hash table được trả về làm result. Algorithm thứ hai là sort/group algorithm, trước hết sort input data theo grouping key để các row của mỗi group nằm liền kề nhau. Sau đó database chỉ cần aggregate chúng. Nói chung, cả hai algorithm đều cần materialize một intermediate state, nên chúng không được execute theo pipelined manner. Tuy vậy, sort/group algorithm có thể dùng index để tránh sort operation, nhờ đó enable pipelined <code class="kw">group by</code>.</p></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Note</span></p><p>MySQL 5.6 không dùng hash algorithm. Tuy nhiên, optimization cho sort/group algorithm vẫn hoạt động như mô tả bên dưới.</p></aside>
+<div class="para" id="p08-u031"><p>Xét query sau. Query này trả về revenue của yesterday được group theo <code class="id">PRODUCT_ID</code>:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT product_id, sum(eur_value)
+  FROM sales
+ WHERE sale_date = TRUNC(sysdate) - INTERVAL '1' DAY
+ GROUP BY product_id;</code></pre></div>
+<div class="para" id="p08-u033"><p>Vì đã biết index trên <code class="id">SALE_DATE</code> và <code class="id">PRODUCT_ID</code> từ section trước, sort/group algorithm phù hợp hơn vì <code class="id">INDEX RANGE SCAN</code> tự động trả về các row theo order cần thiết. Nghĩa là database tránh được materialization vì không cần explicit sort operation — <code class="kw">group by</code> được execute theo pipelined manner.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id |Operation                    | Name        | Rows | Cost |
+---------------------------------------------------------------
+| 0 |SELECT STATEMENT             |             | 17 | 192 |
+| 1 | SORT GROUP BY NOSORT        |             | 17 | 192 |
+| 2 | TABLE ACCESS BY INDEX ROWID| SALES        | 321 | 192 |
+|*3 |   INDEX RANGE SCAN          | SALES_DT_PR | 321 |     3 |
+---------------------------------------------------------------</code></pre></div>
+<div class="para" id="p08-u036"><p>Execution plan của Oracle database đánh dấu một <code class="id">SORT GROUP</code> BY được execute theo pipelined manner bằng addendum <code class="id">NOSORT</code>. Execution plan của các database khác không nhắc đến sort operation nào.</p></div>
+<div class="para" id="p08-u037"><p>Pipelined <code class="kw">group by</code> có cùng prerequisite với pipelined <code class="kw">order by</code>, ngoại trừ việc không có modifier <code class="id">ASC</code> và <code class="id">DESC</code>. Nghĩa là define index với modifier <code class="id">ASC</code>/<code class="id">DESC</code> không nên ảnh hưởng đến pipelined <code class="kw">group by</code> execution. Điều tương tự cũng đúng với <code class="id">NULLS FIRST</code>/<code class="id">LAST</code>. Tuy nhiên, có những database không thể sử dụng đúng một <code class="id">ASC</code>/<code class="id">DESC</code> index cho pipelined <code class="kw">group by</code>.</p></div>
+<aside class="callout warning "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Warning</span></p><p>Với PostgreSQL, bạn phải thêm <code class="kw">order by</code> clause để index có <code class="id">NULLS LAST</code> sorting có thể được dùng cho pipelined <code class="kw">group by</code>.</p>
+<p>Oracle database không thể đọc index theo backward direction để execute pipelined <code class="kw">group by</code> theo sau bởi <code class="kw">order by</code>.</p></aside>
+<div class="para" id="p08-u039"><p>Nếu mở rộng query để xét tất cả sale kể từ yesterday, như trong ví dụ về pipelined <code class="kw">order by</code>, điều đó sẽ ngăn pipelined <code class="kw">group by</code> vì cùng lý do trước đó: <code class="id">INDEX RANGE SCAN</code> không trả về các row theo order của grouping key (so sánh Figure 6.1 ở page 131).</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT product_id, sum(eur_value)
+  FROM sales
+ WHERE sale_date &gt;= TRUNC(sysdate) - INTERVAL '1' DAY
+ GROUP BY product_id;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id |Operation                    | Name        | Rows | Cost |
+---------------------------------------------------------------
+| 0 |SELECT STATEMENT             |             |   24 | 356 |
+| 1 | HASH GROUP BY               |             |   24 | 356 |
+| 2 | TABLE ACCESS BY INDEX ROWID| SALES        | 596 | 355 |
+|*3 |   INDEX RANGE SCAN          | SALES_DT_PR | 596 |     4 |
+---------------------------------------------------------------</code></pre></div>
+<div class="para" id="p08-u042"><p>Thay vào đó, Oracle database dùng hash algorithm. Ưu điểm của hash algorithm là nó chỉ cần buffer aggregated result, trong khi sort/group algorithm materialize toàn bộ input set. Nói cách khác, hash algorithm cần ít memory hơn.</p></div>
+<div class="para" id="p08-u044"><p>Cũng như pipelined <code class="kw">order by</code>, execution nhanh không phải là khía cạnh quan trọng nhất của pipelined <code class="kw">group by</code> execution. Quan trọng hơn là database execute nó theo pipelined manner và trả về result đầu tiên trước khi đọc toàn bộ input. Đây là prerequisite cho các advanced optimization method được giải thích trong chapter tiếp theo.</p></div>
+<aside class="callout think_about_it "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Think about it</span></p><p>Ngoài sorting và grouping, bạn có nghĩ ra database operation nào khác có thể dùng index để tránh sorting không?</p></aside>
+</div>
+<nav class="pager"><a class="prev" href="chap_05.html"><small>← Trước</small>Chương 5 — Clustering Data</a><a class="next" href="chap_07.html"><small>Sau →</small>Chương 7 — Partial Results</a></nav>
+</main>
+</div>
+</body>
+</html>

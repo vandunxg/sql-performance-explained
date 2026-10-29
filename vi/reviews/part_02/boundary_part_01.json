@@ -1,0 +1,23 @@
+{
+  "from_part_id": "part_01",
+  "to_part_id": "part_02",
+  "rule_version": "1.0",
+  "from_status_before": "FINALIZED",
+  "from_status_after": "FINALIZED",
+  "boundary_status": "PASS",
+  "units_reviewed": ["p01-u047", "p01-u049", "p01-u050", "p02-u001", "p02-u002", "p02-u003", "p02-u004"],
+  "source_evidence": [
+    {"unit_id":"p01-u049","quote":"The database does not need to follow the index leaf nodes —it is enough to traverse the index tree."},
+    {"unit_id":"p02-u002","quote":"INDEX UNIQUE SCAN — the operation that only traverses the index tree."},
+    {"unit_id":"p02-u004","quote":"there is no such risk in connection with an INDEX UNIQUE SCAN"}
+  ],
+  "checks": [
+    {"check":"referent_and_argument_continuity","result":"PASS","evidence":"p02-u002 continues p01-u049's index-tree traversal result; p02-u004 continues the one-entry/table-access contrast without changing the argument."},
+    {"check":"terminology_continuity","result":"PASS","evidence":"Both parts retain index, database, execution plan, INDEX UNIQUE SCAN, TABLE ACCESS BY INDEX ROWID, index tree, and leaf node."},
+    {"check":"polarity_and_modality","result":"PASS","evidence":"p02-u004 preserves the source's limited claim that slow-query ingredients are absent with INDEX UNIQUE SCAN; it does not generalize the claim to all index access."},
+    {"check":"boundary_render_independence","result":"PASS","evidence":"The PDF renderer emitted only Part 02 unit IDs; previous-tail units were used for review context and were not duplicated in the Part 02 translation or HTML."}
+  ],
+  "findings": [],
+  "revision_required": false,
+  "next_boundary_status": "PENDING_NEXT_TRANSLATION"
+}

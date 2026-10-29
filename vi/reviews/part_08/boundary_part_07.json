@@ -1,0 +1,30 @@
+{
+  "from_part_id": "part_07",
+  "to_part_id": "part_08",
+  "rule_version": "1.0",
+  "boundary_status": "BOUNDARY_QA_PASSED",
+  "final_status": "FINALIZED",
+  "previous_tail": [
+    {"unit_id":"p07-u147","source_text":"In this case, the database uses the index tree to find the last matching entry. From there on, it follows the leaf node chain “upwards” as shown in Figure 6.2. After all, this is why the database uses a doubly linked list to build the leaf node chain.","translated_text":"Trong trường hợp này, database dùng index tree để tìm matching entry cuối cùng. Từ đó, nó đi theo leaf node chain “lên trên” như trong Figure 6.2. Sau cùng, đó là lý do database dùng doubly linked list để xây dựng leaf node chain."},
+    {"unit_id":"p07-u148","source_text":"Of course it is crucial that the scanned index range is in the exact opposite order as needed for the order by clause.","translated_text":"Đương nhiên, điều quan trọng là scanned index range phải ở đúng order ngược với order mà order by clause cần."},
+    {"unit_id":"p07-u149","source_text":"Important\nDatabases can read indexes in both directions.","translated_text":"Important\nDatabase có thể đọc index theo cả 2 direction."}
+  ],
+  "next_head": [
+    {"unit_id":"p08-u001","source_text":"Indexing ASC, DESC and NULLS FIRST/LAST","translated_text":"Indexing ASC, DESC và NULLS FIRST/LAST"},
+    {"unit_id":"p08-u002","source_text":"Figure 6.2. Reverse Index Scan","translated_text":"Figure 6.2. Reverse Index Scan"},
+    {"unit_id":"p08-u004","source_text":"The following example does not fulfill this prerequisite because it mixes ASC and DESC modifiers in the order by clause:","translated_text":"Ví dụ sau không đáp ứng prerequisite này vì nó trộn modifier ASC và DESC trong order by clause:"}
+  ],
+  "checks": {
+    "read_without_part_labels": true,
+    "referents_checked": ["this prerequisite", "Figure 6.2", "scanned index range", "order by clause"],
+    "terminology_conflicts": [],
+    "polarity_or_condition_changes": [],
+    "duplication_or_gap": false,
+    "issues": []
+  },
+  "evidence": [
+    "The Part 07 final Important callout states that databases can read indexes in both directions; the Part 08 heading and Figure 6.2 continue the same index-direction topic.",
+    "The Part 08 opening translates the mixed ASC/DESC exception as a failure to satisfy the prerequisite, preserving the source's condition and leading into the exact SQL example.",
+    "The Part 08 HTML and PDF contain only p08 unit IDs, so previous-part context is not duplicated."
+  ]
+}

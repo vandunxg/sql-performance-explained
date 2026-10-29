@@ -1,0 +1,57 @@
+{
+  "part_id": "part_09",
+  "rule_version": "1.0",
+  "source_unit_count": 165,
+  "translated_unit_count": 165,
+  "coverage_check": "PASS",
+  "code_integrity_check": "PASS",
+  "local_status": "LOCAL_QA_PASSED",
+  "boundary_status": "PASS_PREVIOUS_PART_PENDING_NEXT_PART",
+  "final_status": "PENDING_BOUNDARY",
+  "findings": [
+    {
+      "finding_id": "QA-009-001",
+      "severity": "MAJOR",
+      "unit_id": "p09-u026",
+      "source_quote": "Figure 8.1. Insert Performance by Number of Indexes",
+      "translated_quote": "Protected Figure 8.1 chart",
+      "issue": "The initial source rectangle captured neighboring prose instead of the Figure 8.1 chart.",
+      "proposed_fix": "Recomputed the source-page rectangle from the source PDF and regenerated the crop and assembled PDF.",
+      "status": "FIXED"
+    },
+    {
+      "finding_id": "QA-009-002",
+      "severity": "MAJOR",
+      "unit_id": "p09-u129",
+      "source_quote": "EXPLAIN SELECT 1;",
+      "translated_quote": "Protected SQL crop",
+      "issue": "The initial source rectangle captured the surrounding note text and clipped the protected SQL statement.",
+      "proposed_fix": "Recomputed the source-page rectangle to include the complete protected SQL block only, then regenerated the crop and assembled PDF.",
+      "status": "FIXED"
+    }
+  ],
+  "boundary_review": {
+    "previous_part_id": "part_08",
+    "next_part_id": "part_10",
+    "referents_checked": [
+      "Part 08 closes by distinguishing human-readable equivalent predicate logic from the form databases can use as an access predicate; Part 09 opens with window functions for pagination without duplicating the preceding predicate discussion.",
+      "Part 09 closes with the PostgreSQL WindowAgg limitation for pipelined top-N queries; Part 10 opens with PostgreSQL access and filter-predicate distinctions as the next appendix subsection."
+    ],
+    "terminology_conflicts": [],
+    "continuity_issues": []
+  },
+  "verified_automated_checks": [
+    "jq parsed translation.json and confirmed source_unit_ids exactly equal the ordered translation IDs: 165/165, unique, with status DRAFT.",
+    "Generated HTML contains exactly 165 data-unit-id values and zero pre elements.",
+    "All 17 protected crop units have one source page, rectangle, crop asset, and exact-once HTML mapping; p09-u013 clones the special source page once.",
+    "All 18 protected assets are non-empty; qpdf --check passes; pdftotext contains selectable Vietnamese prose and no file:/// URLs.",
+    "UTF-8 extraction round-trips without replacement characters; all 24 rendered output pages have consistent 840x1293 PNG dimensions.",
+    "Exact source SQL, execution-plan, table, figure, and special-page content is carried by protected source crops; no generic pre block is used."
+  ],
+  "verified_manual_checks": [
+    "Reviewed the complete 165-unit source and translation ordering, including headings, prose, callouts, captions, protected SQL, execution plans, figures, the contents table, footnote, and special source page.",
+    "Audited the protected-block contact sheet and representative full pages; corrected the Figure 8.1 and EXPLAIN SELECT 1 crop geometries and verified both regenerated assets.",
+    "Inspected the latest 24-page contact sheet and representative full pages for blank-page handling, clipping, overflow, protected-block boundaries, and selectable Vietnamese prose.",
+    "Checked the Part 08 tail, Part 09 opening, Part 09 tail, and Part 10 source-only opening for subject continuity, referents, terminology, polarity, and argument direction."
+  ]
+}

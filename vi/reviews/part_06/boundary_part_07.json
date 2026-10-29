@@ -1,0 +1,30 @@
+{
+  "part_id": "part_06",
+  "next_part_id": "part_07",
+  "rule_version": "1.0",
+  "boundary_status": "BOUNDARY_QA_PASSED",
+  "final_status": "FINALIZED",
+  "previous_tail": [
+    {"unit_id":"p06-u167","source_text":"The column SUBSIDIARY_ID is the first index column so it can be used as an access predicate. The expression UPPER(last_name) covers the LIKE filter as index filter predicate. Indexing the uppercase representation saves a few CPU cycles during execution, but a straight index on LAST_NAME would work as well. You’ll find more about this in the next section.","translated_text":"Column SUBSIDIARY_ID là index column đầu tiên nên có thể được dùng làm access predicate. Expression UPPER(last_name) cover LIKE filter dưới dạng index filter predicate. Index biểu diễn uppercase giúp tiết kiệm một vài CPU cycle trong quá trình execute, nhưng index thông thường trên LAST_NAME cũng hoạt động. Bạn sẽ tìm hiểu thêm về điều này trong section tiếp theo."},
+    {"unit_id":"p06-u168","source_text":"Execution plan source block for the new EMPSUBUPNAM plan.","translated_text":"Protected execution plan; source crop is authoritative."},
+    {"unit_id":"p06-u169","source_text":"The new execution plan shows the very same operations as before. The cost value dropped considerably nonetheless. In the predicate information we can see that the LIKE filter is already applied during the INDEX RANGE SCAN. Rows that do not fulfill the LIKE filter are immediately discarded. The table access does not have any filter predicates anymore. That means it does not load rows that do not fulfill the where clause.","translated_text":"Execution plan mới hiển thị chính các operation như trước. Dù vậy, cost value đã giảm đáng kể. Trong predicate information, chúng ta thấy LIKE filter đã được áp dụng ngay trong INDEX RANGE SCAN. Các row không thỏa LIKE filter bị loại ngay lập tức. Table access không còn filter predicate nào nữa. Nghĩa là nó không load những row không thỏa where clause."}
+  ],
+  "next_head": [
+    {"unit_id":"p07-u001","source_text":"Index Filter Predicates Used Intentionally","translated_text":"Dùng index filter predicate có chủ đích"},
+    {"unit_id":"p07-u002","source_text":"The difference between the two execution plans is clearly visible in the “Rows” column. According to the optimizer’s estimate, the query ultimately matches 17 records. The index scan in the first execution plan delivers 333 rows nevertheless. The database must then load these 333 rows from the table to apply the LIKE filter which reduces the result to 17 rows.","translated_text":"Sự khác biệt giữa hai execution plan nhìn thấy rất rõ trong column “Rows”. Theo estimate của optimizer, query cuối cùng match 17 record. Tuy vậy, index scan trong execution plan thứ nhất trả về 333 row. Database sau đó phải load 333 row này từ table để áp dụng LIKE filter, làm kết quả giảm xuống còn 17 row."},
+    {"unit_id":"p07-u003","source_text":"You should also note that the cost value of the INDEX RANGE SCAN operation grew from two to three because the additional column makes the index bigger. In view of the performance gain, it is an acceptable compromise.","translated_text":"Bạn cũng nên lưu ý cost value của operation INDEX RANGE SCAN tăng từ 2 lên 3 vì column bổ sung làm index lớn hơn. Xét performance gain đạt được, đây là một compromise chấp nhận được."}
+  ],
+  "checks": {
+    "read_without_part_labels": true,
+    "referents_checked": ["the new execution plan", "the LIKE filter", "the table access", "the two execution plans"],
+    "terminology_conflicts": [],
+    "polarity_or_condition_changes": [],
+    "duplication_or_gap": false,
+    "issues": []
+  },
+  "evidence": [
+    "The Part 06 final paragraph directly sets up the comparison of the two execution plans; Part 07 u002 continues with the same Rows/cost/filter argument without restarting or changing the subject.",
+    "The Part 07 opening retains 17, 333, LIKE filter, INDEX RANGE SCAN, and TABLE ACCESS BY INDEX ROWID semantics.",
+    "Part 06 and Part 07 use the same approved terminology: index filter predicate, access predicate, execution plan, cost value, and table access."
+  ]
+}

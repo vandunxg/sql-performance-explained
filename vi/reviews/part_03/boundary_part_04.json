@@ -1,0 +1,27 @@
+{
+  "from_part_id": "part_03",
+  "to_part_id": "part_04",
+  "rule_version": "1.0",
+  "from_status_before": "LOCAL_QA_PASSED_PENDING_BOUNDARY",
+  "from_status_after": "FINALIZED",
+  "boundary_status": "PASS",
+  "units_reviewed": ["p03-u162", "p03-u163", "p03-u164", "p03-u165", "p04-u001", "p04-u002", "p04-u003"],
+  "source_evidence": [
+    {"unit_id":"p03-u162","quote":"The where clause of a partial index can become arbitrarily complex. The only fundamental limitation is about functions: you can only use deterministic functions as is the case everywhere in an index definition. SQL Server has, however, more restrictive rules and neither allow functions nor the OR operator in index predicates."},
+    {"unit_id":"p03-u163","quote":"A database can use a partial index whenever the where clause appears in a query."},
+    {"unit_id":"p03-u164","quote":"Think about it\nWhat peculiarity has the smallest possible index for the following query:"},
+    {"unit_id":"p03-u165","quote":"SELECT message\nFROM messages\nWHERE processed = 'N';"},
+    {"unit_id":"p04-u001","quote":"NULL in the Oracle Database"},
+    {"unit_id":"p04-u002","quote":"SQL’s NULL frequently causes confusion. Although the basic idea of NULL — to represent missing data— is rather simple, there are some peculiarities. You have to use IS NULL instead of = NULL, for example. Moreover the Oracle database has additional NULL oddities, on the one hand because it does not always handle NULL as required by the standard and on the other hand because it has a very “special” handling of NULL in indexes."},
+    {"unit_id":"p04-u003","quote":"The SQL standard does not define NULL as a value but rather as a placeholder for a missing or unknown value. Consequently, no value can be NULL. Instead the Oracle database treats an empty string as NULL:"}
+  ],
+  "checks": [
+    {"check":"referent_and_argument_continuity","result":"PASS","evidence":"Part 03 ends the partial-index discussion with a question and its SQL example. Part 04 explicitly opens a new NULL-in-Oracle section; no pronoun, unresolved example, or unfinished causal chain is carried into the new section."},
+    {"check":"terminology_continuity","result":"PASS","evidence":"The opening retains index, partial index, where clause, NULL, Oracle database, SQL standard, and index terminology without conflicting with Part 03 decisions."},
+    {"check":"polarity_and_modality","result":"PASS","evidence":"The transition preserves Part 03's conditional partial-index statements and Part 04's separate claim about Oracle NULL behavior; no conclusion or guarantee is manufactured."},
+    {"check":"boundary_render_independence","result":"PASS","evidence":"Part 04 HTML contains only p04 unit IDs; p03 context units are used only in this review and are not duplicated in the draft or rendered PDF."}
+  ],
+  "findings": [],
+  "revision_required": false,
+  "next_boundary_status": "PENDING_NEXT_TRANSLATION"
+}

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Giải thích SQL Performance - Phần 04</title>
+<style>
+@page { size: 148mm 228mm; margin: 17mm 15mm 18mm; }
+* { box-sizing: border-box; }
+body { color: #202124; font-family: "Noto Serif", serif; font-size: 10.2pt; line-height: 1.47; margin: 0; }
+p { margin: 0 0 0.75em; orphans: 3; widows: 3; }
+h2 { break-after: avoid; color: #254b66; font-family: "Noto Sans", sans-serif; font-size: 16pt; line-height: 1.2; margin: 1.65em 0 0.7em; }
+h3 { break-after: avoid; color: #254b66; font-family: "Noto Sans", sans-serif; font-size: 11.5pt; line-height: 1.25; margin: 1em 0 0.45em; }
+figure.source-clone-figure { break-inside: avoid; margin: 1em 0 1.25em; }
+img.source-clone { display: block; height: auto; max-width: 100%; }
+.caption { break-after: avoid; color: #59656c; font-family: "Noto Sans", sans-serif; font-size: 8.7pt; font-style: italic; margin-top: 1.1em; text-align: center; }
+aside { break-inside: avoid; border-left: 3pt solid #8b9d38; margin: 1.3em 0; padding: 0.35em 0 0.35em 1em; }
+aside.important, aside.caution { border-left-color: #a94a3d; }
+aside.sidebar { background: #f5f7ef; border: 0.5pt solid #cbd5a8; padding: 0.8em 1em; }
+aside.think_about_it { background: #eef4f7; border-left-color: #39728d; }
+aside p:last-child { margin-bottom: 0; }
+</style>
+</head>
+<body>
+<h2 data-unit-id="p04-u001">NULL trong Oracle Database</h2>
+<section class="prose paragraph" data-unit-id="p04-u002"><p>NULL trong SQL thường gây nhầm lẫn. Ý tưởng cơ bản của NULL — biểu diễn dữ liệu bị thiếu — khá đơn giản, nhưng có một số điểm đặc biệt. Chẳng hạn, bạn phải dùng IS NULL thay vì = NULL. Oracle database còn có thêm những điểm khác thường về NULL, một mặt vì nó không phải lúc nào cũng xử lý NULL theo đúng standard, mặt khác vì nó xử lý NULL trong index theo một cách rất “đặc biệt”.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u003"><p>SQL standard không định nghĩa NULL là một value mà là placeholder cho một value bị thiếu hoặc chưa biết. Vì vậy, không có value nào có thể là NULL. Thay vào đó, Oracle database xử lý empty string như NULL:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u004" data-source-page="1" data-source-rect="60,253,290,165" src="../../assets/part_04_p04-u004.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u005"><p>Để vấn đề thêm rối, có một trường hợp Oracle database thậm chí xử lý NULL như empty string:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u006" data-source-page="1" data-source-rect="60,460,115,87" src="../../assets/part_04_p04-u006.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u007"><p>Nối column DUMMY (luôn chứa &#39;X&#39;) với NULL đáng lẽ phải trả về NULL.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u008"><p>Concept NULL được dùng trong nhiều programming language. Dù nhìn ở đâu, empty string cũng không bao giờ là NULL… ngoại trừ trong Oracle database. Trên thực tế, không thể lưu empty string vào field VARCHAR2. Nếu thử làm vậy, Oracle database chỉ lưu NULL.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u009"><p>Điểm đặc biệt này không chỉ kỳ lạ mà còn nguy hiểm. Ngoài ra, điểm khác thường của Oracle database với NULL chưa dừng ở đó — nó tiếp tục ảnh hưởng đến indexing.</p></section>
+<h2 data-unit-id="p04-u010">Indexing NULL</h2>
+<section class="prose paragraph" data-unit-id="p04-u011"><p>Oracle database không đưa row vào index nếu tất cả column được index đều là NULL. Điều đó có nghĩa mọi index đều là một partial index — tương đương với việc có where clause:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u012" data-source-page="2" data-source-rect="47,282,165,68" src="../../assets/part_04_p04-u012.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u013"><p>Hãy xét index EMP_DOB. Nó chỉ có một column là DATE_OF_BIRTH. Một row không có value DATE_OF_BIRTH sẽ không được thêm vào index này.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u014" data-source-page="2" data-source-rect="47,395,255,47" src="../../assets/part_04_p04-u014.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u015"><p>Insert statement không set DATE_OF_BIRTH nên value mặc định là NULL — vì vậy record không được thêm vào index EMP_DOB. Do đó, index không thể hỗ trợ query tìm các record có DATE_OF_BIRTH IS NULL:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u016" data-source-page="2" data-source-rect="47,500,155,39" src="../../assets/part_04_p04-u016.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u017" data-source-page="3" data-source-rect="62,72,265,106" src="../../assets/part_04_p04-u017.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u018"><p>Tuy nhiên, record vẫn được đưa vào concatenated index nếu ít nhất một column của index không phải NULL:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u019" data-source-page="3" data-source-rect="60,220,275,30" src="../../assets/part_04_p04-u019.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u020"><p>Row vừa tạo được thêm vào index vì SUBSIDIARY_ID không phải NULL. Vì vậy, index này có thể hỗ trợ query tìm tất cả employee thuộc một subsidiary cụ thể nhưng không có value DATE_OF_BIRTH:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u021" data-source-page="3" data-source-rect="60,303,155,47" src="../../assets/part_04_p04-u021.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u022" data-source-page="3" data-source-rect="62,352,310,123" src="../../assets/part_04_p04-u022.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u023"><p>Lưu ý rằng index cover toàn bộ where clause; mọi filter đều được dùng làm access predicate trong INDEX RANGE SCAN.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u024"><p>Chúng ta có thể mở rộng concept này cho query ban đầu để tìm mọi record có DATE_OF_BIRTH IS NULL. Khi đó, column DATE_OF_BIRTH phải là column ngoài cùng bên trái trong index để có thể được dùng làm access predicate. Dù bản thân query không cần column index thứ hai, chúng ta thêm một column không bao giờ là NULL để bảo đảm index có đủ mọi row.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u025"><p>Có thể dùng bất kỳ column nào có NOT NULL constraint, chẳng hạn SUBSIDIARY_ID, cho mục đích đó.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u026"><p>Một cách khác là dùng constant expression không bao giờ là NULL. Nhờ vậy, index sẽ có đủ mọi row — kể cả khi DATE_OF_BIRTH là NULL.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u027" data-source-page="4" data-source-rect="47,144,280,29" src="../../assets/part_04_p04-u027.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u028"><p>Về mặt kỹ thuật, đây là một function-based index. Ví dụ này cũng bác bỏ myth rằng Oracle database không thể index NULL.</p></section>
+<aside class="tip" data-unit-id="p04-u029"><p>Mẹo</p><p>Thêm một column không thể là NULL để index NULL như mọi value khác.</p></aside>
+<h2 data-unit-id="p04-u030">NOT NULL Constraints</h2>
+<section class="prose paragraph" data-unit-id="p04-u031"><p>Để index một điều kiện IS NULL trong Oracle database, index phải có một column không bao giờ có thể là NULL.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u032"><p>Tuy vậy, chỉ không có entry NULL là chưa đủ. Database phải chắc chắn rằng không bao giờ có entry NULL; nếu không, database phải giả định table có những row không nằm trong index.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u033"><p>Index sau chỉ hỗ trợ query nếu column LAST_NAME có NOT NULL constraint:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u034" data-source-page="4" data-source-rect="47,458,255,75" src="../../assets/part_04_p04-u034.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u035" data-source-page="5" data-source-rect="62,72,315,115" src="../../assets/part_04_p04-u035.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u036"><p>Gỡ NOT NULL constraint khiến index không thể dùng cho query này:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u037" data-source-page="5" data-source-rect="62,226,225,58" src="../../assets/part_04_p04-u037.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u038" data-source-page="5" data-source-rect="62,285,265,65" src="../../assets/part_04_p04-u038.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<aside class="tip" data-unit-id="p04-u039"><p>Mẹo</p><p>Thiếu NOT NULL constraint có thể ngăn index được sử dụng trong Oracle database — đặc biệt với query count(*).</p></aside>
+<section class="prose paragraph" data-unit-id="p04-u040"><p>Ngoài NOT NULL constraint, database cũng biết các constant expression như ở phần trước không thể trở thành NULL.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u041"><p>Tuy nhiên, index trên user-defined function không áp đặt NOT NULL constraint lên index expression:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u042" data-source-page="5" data-source-rect="62,486,315,95" src="../../assets/part_04_p04-u042.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u043" data-source-page="6" data-source-rect="47,72,155,38" src="../../assets/part_04_p04-u043.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u044" data-source-page="6" data-source-rect="47,111,270,65" src="../../assets/part_04_p04-u044.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u045"><p>Tên function BLACKBOX nhấn mạnh rằng optimizer không biết function làm gì. Chúng ta thấy function truyền thẳng input value, nhưng với database, đó chỉ là một function trả về number. Tính chất NOT NULL của parameter bị mất. Dù index phải có mọi row, database không biết điều đó nên không thể dùng index cho query.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u046"><p>Nếu biết function không bao giờ trả về NULL như trong ví dụ này, bạn có thể thay đổi query để phản ánh điều đó:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u047" data-source-page="6" data-source-rect="47,296,215,48" src="../../assets/part_04_p04-u047.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u048" data-source-page="6" data-source-rect="47,345,310,75" src="../../assets/part_04_p04-u048.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u049"><p>Điều kiện bổ sung trong where clause luôn đúng nên không thay đổi kết quả. Tuy nhiên, Oracle database nhận ra rằng query chỉ lấy các row chắc chắn phải nằm trong index theo định nghĩa.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u050"><p>Đáng tiếc là không có cách nào đánh dấu một function không bao giờ trả về NULL, nhưng bạn có thể chuyển lời gọi function vào một virtual column (từ 11g) và đặt NOT NULL constraint lên column đó.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u051" data-source-page="6" data-source-rect="47,515,300,68" src="../../assets/part_04_p04-u051.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u052" data-source-page="7" data-source-rect="62,72,155,38" src="../../assets/part_04_p04-u052.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u053" data-source-page="7" data-source-rect="62,111,305,76" src="../../assets/part_04_p04-u053.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u054"><p>Oracle database biết rằng một số internal function chỉ trả về NULL nếu input được cung cấp là NULL.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u055" data-source-page="7" data-source-rect="62,233,260,87" src="../../assets/part_04_p04-u055.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u056" data-source-page="7" data-source-rect="62,320,295,77" src="../../assets/part_04_p04-u056.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u057"><p>Function UPPER bảo toàn tính chất NOT NULL của column LAST_NAME. Tuy nhiên, gỡ constraint sẽ khiến index không thể dùng được:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u058" data-source-page="7" data-source-rect="62,442,225,55" src="../../assets/part_04_p04-u058.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u059" data-source-page="7" data-source-rect="62,500,265,68" src="../../assets/part_04_p04-u059.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p04-u060">Emulating Partial Indexes</h2>
+<section class="prose paragraph" data-unit-id="p04-u061"><p>Cách Oracle database xử lý NULL trong index một cách khác thường có thể được dùng để mô phỏng partial index. Để làm vậy, chúng ta chỉ cần dùng NULL cho những row không nên được index.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u062"><p>Để minh họa, chúng ta mô phỏng partial index sau:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u063" data-source-page="8" data-source-rect="47,209,165,39" src="../../assets/part_04_p04-u063.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u064"><p>Trước tiên, chúng ta cần một function chỉ trả về value RECEIVER khi value PROCESSED là &#39;N&#39;.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u065" data-source-page="8" data-source-rect="47,292,328,126" src="../../assets/part_04_p04-u065.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u066"><p>Function phải deterministic để có thể dùng trong index definition.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u067"><p>Bây giờ chúng ta có thể tạo index chỉ chứa các row có PROCESSED=&#39;N&#39;.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u068" data-source-page="8" data-source-rect="47,487,292,30" src="../../assets/part_04_p04-u068.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u069"><p>Để sử dụng index, bạn phải dùng indexed expression trong query:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u070" data-source-page="9" data-source-rect="62,93,225,39" src="../../assets/part_04_p04-u070.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u071" data-source-page="9" data-source-rect="62,132,290,75" src="../../assets/part_04_p04-u071.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p04-u072">Partial Indexes, Part II</h2>
+<section class="prose paragraph" data-unit-id="p04-u073"><p>Từ release 11g, có một cách tiếp cận thứ hai — đáng sợ không kém — để mô phỏng partial index trong Oracle database: dùng một index partition bị làm hỏng có chủ đích cùng parameter SKIP_UNUSABLE_INDEX.</p></section>
+<h2 data-unit-id="p04-u074">Obfuscated Conditions</h2>
+<section class="prose paragraph" data-unit-id="p04-u075"><p>Các phần sau trình bày một số phương pháp phổ biến để obfuscate condition. Obfuscated condition là where clause được viết theo cách ngăn index được sử dụng đúng mức. Đây là tập hợp các anti-pattern mà mọi developer nên biết và tránh.</p></section>
+<h2 data-unit-id="p04-u076">Date Types</h2>
+<section class="prose paragraph" data-unit-id="p04-u077"><p>Phần lớn obfuscation liên quan đến DATE type. Oracle database đặc biệt dễ gặp vấn đề ở đây vì nó chỉ có một DATE type và type này luôn bao gồm cả time component.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u078"><p>Dùng function TRUNC để loại bỏ time component đã trở thành một practice phổ biến. Thực ra function này không loại bỏ time mà set nó về midnight, vì Oracle database không có pure DATE type. Để bỏ qua time component khi search, bạn có thể dùng function TRUNC ở cả hai phía của phép so sánh — ví dụ để tìm sales của ngày hôm qua:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u079" data-source-page="10" data-source-rect="47,357,300,38" src="../../assets/part_04_p04-u079.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u080"><p>Đây là một statement hoàn toàn hợp lệ và đúng, nhưng không thể sử dụng đúng mức index trên SALE_DATE. Như đã giải thích trong “Case-Insensitive Search Using UPPER or LOWER” ở trang 24, TRUNC(sale_date) hoàn toàn khác SALE_DATE — function là black box đối với database.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u081"><p>Có một giải pháp khá đơn giản cho vấn đề này: function-based index.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u082" data-source-page="10" data-source-rect="47,480,215,29" src="../../assets/part_04_p04-u082.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u083"><p>Nhưng khi đó bạn phải luôn dùng TRUNC(date_column) trong where clause. Nếu dùng không nhất quán — lúc có, lúc không có TRUNC — bạn sẽ cần hai index!</p></section>
+<section class="prose paragraph" data-unit-id="p04-u084"><p>Vấn đề tương tự cũng xảy ra với database có pure date type nếu bạn search một khoảng thời gian dài hơn, như trong MySQL query sau:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u085" data-source-page="11" data-source-rect="62,120,200,45" src="../../assets/part_04_p04-u085.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u086"><p>Query dùng date format chỉ chứa year và month: một lần nữa, đây là query hoàn toàn đúng nhưng có cùng vấn đề như trước. Tuy nhiên, giải pháp ở trên không áp dụng được vì MySQL không có function-based index.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u087"><p>Giải pháp thay thế là dùng explicit range condition. Đây là một giải pháp generic hoạt động với mọi database:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u088" data-source-page="11" data-source-rect="62,273,215,45" src="../../assets/part_04_p04-u088.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u089"><p>Nếu đã làm bài tập, có lẽ bạn nhận ra pattern từ exercise về tất cả employee 42 tuổi.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u090"><p>Một index thông thường trên SALE_DATE là đủ để optimize query này. Các function QUARTER_BEGIN và QUARTER_END tính boundary date. Việc tính toán có thể hơi phức tạp vì operator between luôn bao gồm các boundary value. Vì vậy, function QUARTER_END phải trả về một time stamp ngay trước ngày đầu tiên của quarter tiếp theo nếu SALE_DATE có time component. Logic này có thể được ẩn trong function.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u091"><p>Các ví dụ ở những trang sau cho thấy cách implement function QUARTER_BEGIN và QUARTER_END cho nhiều database khác nhau.</p></section>
+<h2 data-unit-id="p04-u092">MySQL</h2>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u093" data-source-page="12" data-source-rect="65,95,290,185" src="../../assets/part_04_p04-u093.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p04-u094">Oracle Database</h2>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u095" data-source-page="12" data-source-rect="65,323,250,195" src="../../assets/part_04_p04-u095.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p04-u096">PostgreSQL</h2>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u097" data-source-page="13" data-source-rect="79,95,295,155" src="../../assets/part_04_p04-u097.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p04-u098">SQL Server</h2>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u099" data-source-page="13" data-source-rect="79,294,250,175" src="../../assets/part_04_p04-u099.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u100"><p>Bạn có thể dùng các auxiliary function tương tự cho những period khác — phần lớn sẽ đơn giản hơn các ví dụ trên, đặc biệt khi dùng condition lớn hơn hoặc bằng (&gt;=) và nhỏ hơn (&lt;) thay cho operator between. Tất nhiên, nếu muốn bạn cũng có thể tính boundary date trong application.</p></section>
+<aside class="tip" data-unit-id="p04-u101"><p>Mẹo</p><p>Viết query cho các period liên tục dưới dạng explicit range condition. Hãy làm vậy ngay cả với một ngày — ví dụ, trong Oracle database:</p></aside>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u102" data-source-page="14" data-source-rect="65,128,255,28" src="../../assets/part_04_p04-u102.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u103"><p>Một obfuscation phổ biến khác là so sánh date dưới dạng string, như trong PostgreSQL example sau:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u104" data-source-page="14" data-source-rect="47,203,265,38" src="../../assets/part_04_p04-u104.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u105"><p>Vấn đề một lần nữa là việc convert DATE_COLUMN. Những condition như vậy thường được tạo ra vì nghĩ rằng database chỉ nhận được type number và string. Tuy nhiên, bind parameter hỗ trợ mọi data type. Chẳng hạn, bạn có thể dùng object java.util.Date làm bind parameter. Đây là một lợi ích khác của bind parameter.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u106"><p>Nếu không thể làm vậy, bạn chỉ cần convert search term thay vì table column:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u107" data-source-page="14" data-source-rect="47,353,260,38" src="../../assets/part_04_p04-u107.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u108"><p>Query này có thể dùng một index thông thường trên SALE_DATE. Hơn nữa, nó chỉ convert input string một lần. Statement trước phải convert mọi date được lưu trong table trước khi có thể so sánh chúng với search term.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u109"><p>Dù thay đổi theo cách nào — dùng bind parameter hay convert phía còn lại của phép so sánh — bạn đều có thể dễ dàng tạo bug nếu SALE_DATE có time component. Khi đó, bạn phải dùng explicit range condition:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u110" data-source-page="14" data-source-rect="47,503,280,58" src="../../assets/part_04_p04-u110.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u111"><p>Luôn cân nhắc dùng explicit range condition khi so sánh date.</p></section>
+<h2 data-unit-id="p04-u112">LIKE on Date Types</h2>
+<section class="prose paragraph" data-unit-id="p04-u113"><p>Obfuscation sau đây đặc biệt khó nhận ra:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u114" data-source-page="15" data-source-rect="75,122,120,20" src="../../assets/part_04_p04-u114.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u115"><p>Thoạt nhìn, nó không giống obfuscation vì không dùng function nào.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u116"><p>Tuy nhiên, operator LIKE bắt buộc phải so sánh string. Tùy database, điều đó có thể gây error hoặc tạo implicit type conversion ở cả hai phía. Phần “Predicate Information” của execution plan cho thấy Oracle database xử lý thế nào:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u117" data-source-page="15" data-source-rect="75,239,185,29" src="../../assets/part_04_p04-u117.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u118"><p>Function INTERNAL_FUNCTION convert type của column SALE_DATE. Một tác dụng phụ là nó cũng ngăn việc dùng index thông thường trên DATE_COLUMN, giống như mọi function khác.</p></section>
+<h2 data-unit-id="p04-u119">Numeric Strings</h2>
+<section class="prose paragraph" data-unit-id="p04-u120"><p>Numeric string là number được lưu trong text column. Dù đây là một practice rất tệ, nó không tự động làm index vô dụng nếu bạn nhất quán xử lý value đó như string:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u121" data-source-page="16" data-source-rect="47,160,145,39" src="../../assets/part_04_p04-u121.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u122"><p>Dĩ nhiên statement này có thể dùng index trên NUMERIC_STRING. Tuy nhiên, nếu so sánh bằng number thì database không còn dùng được condition này làm access predicate.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u123" data-source-page="16" data-source-rect="47,249,135,38" src="../../assets/part_04_p04-u123.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u124"><p>Hãy chú ý dấu nháy bị thiếu. Dù một số database báo error (ví dụ PostgreSQL), nhiều database chỉ thêm implicit type conversion.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u125" data-source-page="16" data-source-rect="47,325,185,38" src="../../assets/part_04_p04-u125.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u126"><p>Đây là cùng vấn đề như trước. Index trên NUMERIC_STRING không thể dùng được do lời gọi function. Giải pháp cũng giống như trước: đừng convert table column, hãy convert search term.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u127" data-source-page="16" data-source-rect="47,413,180,38" src="../../assets/part_04_p04-u127.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u128"><p>Bạn có thể thắc mắc tại sao database không tự làm theo cách này. Lý do là convert string thành number luôn cho một kết quả không mơ hồ. Chiều ngược lại thì không đúng. Một number được format thành text có thể chứa space, punctuation và leading zero. Một value có thể được viết theo nhiều cách:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u129" data-source-page="16" data-source-rect="47,525,40,58" src="../../assets/part_04_p04-u129.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p04-u130">Numeric Strings</h2>
+<section class="prose paragraph" data-unit-id="p04-u131"><p>Database không thể biết number format được dùng trong column NUMERIC_STRING nên nó làm theo chiều ngược lại: database convert string thành number — đây là phép biến đổi không mơ hồ.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u132"><p>Function TO_CHAR chỉ trả về một string representation của number. Vì vậy, nó chỉ match string đầu tiên trong danh sách trên. Nếu dùng TO_NUMBER, nó match tất cả string. Điều đó có nghĩa hai biến thể không chỉ khác nhau về performance mà còn khác nhau về semantic!</p></section>
+<section class="prose paragraph" data-unit-id="p04-u133"><p>Dùng numeric string nhìn chung gây nhiều vấn đề: quan trọng nhất là nó gây performance problem do implicit conversion và tạo rủi ro gặp conversion error vì number không hợp lệ. Ngay cả query đơn giản nhất, không dùng function nào trong where clause, cũng có thể abort với conversion error nếu chỉ cần một invalid number được lưu trong table.</p></section>
+<aside class="tip" data-unit-id="p04-u134"><p>Mẹo</p><p>Dùng numeric type để lưu number.</p></aside>
+<section class="prose paragraph" data-unit-id="p04-u135"><p>Lưu ý rằng vấn đề không xảy ra theo chiều ngược lại:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u136" data-source-page="17" data-source-rect="62,355,145,38" src="../../assets/part_04_p04-u136.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u137"><p>Database sẽ nhất quán transform string thành number. Nó không áp dụng function lên column có thể được index, vì vậy regular index vẫn hoạt động. Tuy nhiên, bạn vẫn có thể tự convert theo cách sai:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u138" data-source-page="17" data-source-rect="62,462,185,38" src="../../assets/part_04_p04-u138.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p04-u139">Combining Columns</h2>
+<section class="prose paragraph" data-unit-id="p04-u140"><p>Phần này nói về một obfuscation phổ biến ảnh hưởng đến concatenated index.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u141"><p>Ví dụ đầu tiên lại nói về date và time type nhưng theo chiều ngược lại. MySQL query sau kết hợp một date column và một time column để áp dụng range filter lên cả hai:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u142" data-source-page="18" data-source-rect="47,214,210,48" src="../../assets/part_04_p04-u142.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u143"><p>Nó chọn mọi record trong 24 giờ vừa qua. Query không thể dùng đúng mức concatenated index trên (DATE_COLUMN, TIME_COLUMN) vì search không thực hiện trên các column được index mà trên derived data.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u144"><p>Bạn có thể tránh vấn đề này bằng data type có cả date và time component (ví dụ MySQL DATETIME). Khi đó, bạn có thể dùng column này mà không cần function call:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u145" data-source-page="18" data-source-rect="47,358,205,48" src="../../assets/part_04_p04-u145.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u146"><p>Đáng tiếc là khi gặp vấn đề này, thường không thể thay đổi table.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u147"><p>Lựa chọn tiếp theo là function-based index nếu database hỗ trợ — dù cách này có mọi drawback đã bàn trước đó. Với MySQL, function-based index vốn không phải là một option.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u148"><p>Tuy vậy, vẫn có thể viết query để database dùng concatenated index trên DATE_COLUMN, TIME_COLUMN với access predicate — ít nhất là một phần. Để làm vậy, chúng ta thêm một condition vào DATE_COLUMN.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u149" data-source-page="18" data-source-rect="52,535,225,48" src="../../assets/part_04_p04-u149.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u150"><p>Condition mới hoàn toàn redundant nhưng là một filter trực tiếp trên DATE_COLUMN và có thể được dùng làm access predicate. Dù kỹ thuật này không hoàn hảo, nó thường là một approximation đủ tốt.</p></section>
+<aside class="tip" data-unit-id="p04-u151"><p>Mẹo</p><p>Dùng một redundant condition trên column có significance cao nhất khi một range condition kết hợp nhiều column.</p><p>&nbsp;</p><p>Với PostgreSQL, nên dùng row values syntax được mô tả ở trang 151.</p></aside>
+<section class="prose paragraph" data-unit-id="p04-u152"><p>Bạn cũng có thể dùng kỹ thuật này khi lưu date và time trong text column, nhưng phải dùng date format và time format tạo ra thứ tự chronological khi sort theo lexical order — ví dụ format được ISO 8601 gợi ý (YYYY-MM-DD HH:MM:SS). Ví dụ sau dùng function TO_CHAR của Oracle database cho mục đích đó:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u153" data-source-page="19" data-source-rect="62,287,265,65" src="../../assets/part_04_p04-u153.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u154"><p>Chúng ta sẽ lại gặp vấn đề áp dụng range condition trên nhiều column trong phần “Paging Through Results”. Chúng ta cũng sẽ dùng cùng phương pháp approximation để giảm nhẹ vấn đề.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u155"><p>Đôi khi chúng ta gặp trường hợp ngược lại và muốn cố ý obfuscate condition để nó không còn được dùng làm access predicate. Chúng ta đã xem vấn đề này khi bàn về ảnh hưởng của bind parameter lên LIKE condition. Hãy xét ví dụ sau:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u156" data-source-page="19" data-source-rect="62,471,215,48" src="../../assets/part_04_p04-u156.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u157"><p>Giả sử có một index trên SUBSIDIARY_ID và một index khác trên LAST_NAME, index nào tốt hơn cho query này?</p></section>
+<section class="prose paragraph" data-unit-id="p04-u158"><p>Không biết vị trí wildcard trong search term thì không thể đưa ra câu trả lời có cơ sở. Optimizer không còn lựa chọn nào khác ngoài việc “đoán”. Nếu biết luôn có leading wildcard, bạn có thể cố ý obfuscate LIKE condition để optimizer không còn xem xét index trên LAST_NAME.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p04-u159" data-source-page="20" data-source-rect="47,156,215,48" src="../../assets/part_04_p04-u159.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p04-u160"><p>Chỉ cần append một empty string vào column LAST_NAME. Tuy nhiên, đây là option cuối cùng. Chỉ dùng khi thật sự cần thiết.</p></section>
+<h2 data-unit-id="p04-u161">Smart Logic</h2>
+<section class="prose paragraph" data-unit-id="p04-u162"><p>Một trong những tính năng cốt lõi của SQL database là hỗ trợ ad-hoc query: query mới có thể được thực thi bất cứ lúc nào. Điều này chỉ khả thi vì query optimizer (query planner) hoạt động ở runtime; nó phân tích từng statement khi nhận được và lập tức tạo execution plan hợp lý. Bind parameter có thể giảm overhead do runtime optimization gây ra.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u163"><p>Tóm lại, database được tối ưu cho dynamic SQL — vì vậy hãy dùng nó nếu cần.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u164"><p>Tuy nhiên, có một practice phổ biến là tránh dynamic SQL để dùng static SQL — thường vì myth “dynamic SQL chậm”. Practice này gây hại nhiều hơn lợi nếu database dùng shared execution plan cache như DB2, Oracle database hoặc SQL Server.</p></section>
+<section class="prose paragraph" data-unit-id="p04-u165"><p>Để minh họa, hãy hình dung một application query table EMPLOYEES. Application cho phép search subsidiary id, employee id và last name (case-insensitive) theo mọi tổ hợp. Vẫn có thể viết một query duy nhất bao phủ mọi trường hợp bằng “smart” logic.</p></section>
+</body>
+</html>

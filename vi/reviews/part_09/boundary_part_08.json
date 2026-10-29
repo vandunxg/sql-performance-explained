@@ -1,0 +1,27 @@
+{
+  "from_part_id": "part_08",
+  "to_part_id": "part_09",
+  "rule_version": "1.0",
+  "from_status_before": "DRAFT_PENDING_BOUNDARY",
+  "from_status_after": "FINALIZED",
+  "boundary_status": "PASS",
+  "units_reviewed": ["p08-u147", "p08-u148", "p08-u149", "p09-u001", "p09-u002", "p09-u003", "p09-u004"],
+  "source_evidence": [
+    {"unit_id":"p08-u147","quote":"This variant only uses including conditions and is probably easier to understand— for human beings, at least. Databases have a different point of view."},
+    {"unit_id":"p08-u148","quote":"WHERE sale_date <= ?\nAND (\n(sale_date < ?)\nOR\n(sale_date = ? AND sale_id < ?)\n)"},
+    {"unit_id":"p08-u149","quote":"Luckily, all databases are able to use the this part of the where clause as access predicate."},
+    {"unit_id":"p09-u001","quote":"Chapter 7: Partial Results"},
+    {"unit_id":"p09-u002","quote":"Using Window Functions for Pagination"},
+    {"unit_id":"p09-u003","quote":"Window functions offer yet another way to implement pagination in SQL."},
+    {"unit_id":"p09-u004","quote":"This is a flexible, and above all, standards-compliant method. However, only SQL Server and the Oracle database can use them for a pipelined top-N query."}
+  ],
+  "checks": [
+    {"check":"referent_and_argument_continuity","result":"PASS","evidence":"Part 08 closes the indexing/predicate discussion. Part 09 opens a new Chapter 7 subsection on window functions for pagination without an unexplained referent or duplicated predicate discussion."},
+    {"check":"terminology_continuity","result":"PASS","evidence":"Window function, pagination, pipelined top-N query, access predicate, and filter predicate usage remains consistent with the handoffs and glossary."},
+    {"check":"polarity_and_condition_changes","result":"PASS","evidence":"The Part 09 opening preserves the source limitations: SQL Server and Oracle support the stated pipelined top-N behavior, PostgreSQL does not abort the scan after enough rows, and MySQL lacks window-function support."},
+    {"check":"boundary_render_independence","result":"PASS","evidence":"Part 09 HTML and PDF contain only p09 unit IDs; Part 08 tail units are used only as boundary context and are not duplicated in Part 09 output."}
+  ],
+  "findings": [],
+  "revision_required": false,
+  "next_boundary_status": "PENDING_NEXT_TRANSLATION"
+}

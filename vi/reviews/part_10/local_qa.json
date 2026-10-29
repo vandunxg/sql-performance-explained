@@ -1,0 +1,67 @@
+{
+  "part_id": "part_10",
+  "rule_version": "1.0",
+  "source_unit_count": 161,
+  "translated_unit_count": 161,
+  "coverage_check": "PASS",
+  "code_integrity_check": "PASS",
+  "local_status": "LOCAL_QA_PASSED",
+  "boundary_status": "PASS_PREVIOUS_PART",
+  "final_status": "FINALIZED",
+  "findings": [
+    {
+      "finding_id": "QA-010-001",
+      "severity": "MAJOR",
+      "unit_id": "p10-u047",
+      "source_quote": "select COUNT(*) from employees; ... Index Scan(OBJECT:([employees].[employees_pk]))",
+      "translated_quote": "Protected SQL Server StmtText sample",
+      "issue": "The first draft crop included neighboring prose above the protected StmtText block.",
+      "proposed_fix": "Tightened the source-page rectangle to the exact SQL Server StmtText block and regenerated the PDF.",
+      "status": "FIXED"
+    },
+    {
+      "finding_id": "QA-010-002",
+      "severity": "MAJOR",
+      "unit_id": "p10-u079",
+      "source_quote": "CREATE TABLE scale_data ... CREATE INDEX scale_slow ON scale_data(section, id1, id2);",
+      "translated_quote": "Protected SQL Server DDL and index statement",
+      "issue": "The first draft crop included the following prose sentence and was not limited to the protected code block.",
+      "proposed_fix": "Tightened the crop to the DDL and CREATE INDEX lines only; the following prose remains selectable Vietnamese.",
+      "status": "FIXED"
+    },
+    {
+      "finding_id": "QA-010-003",
+      "severity": "MAJOR",
+      "unit_id": "p10-u096",
+      "source_quote": "EXPLAIN SELECT 1;",
+      "translated_quote": "Protected MySQL EXPLAIN statement",
+      "issue": "The first draft source-page rectangle was offset and captured the surrounding heading instead of the SQL statement alone.",
+      "proposed_fix": "Recomputed the rectangle from the source PDF text coordinates and regenerated the crop.",
+      "status": "FIXED"
+    }
+  ],
+  "boundary_review": {
+    "previous_part_id": "part_09",
+    "next_part_id": null,
+    "referents_checked": [
+      "Part 09 closes with PostgreSQL WindowAgg and the explicit limitation that PostgreSQL cannot execute pipelined top-N queries when using window functions.",
+      "Part 10 opens a new PostgreSQL subsection on distinguishing access predicates from filter predicates, with no duplicated unit or unresolved pronoun referent."
+    ],
+    "terminology_conflicts": [],
+    "continuity_issues": []
+  },
+  "verified_automated_checks": [
+    "jq parsed translation.json and confirmed source_unit_ids exactly equal the ordered translation IDs: 161/161, unique, with status DRAFT.",
+    "Generated HTML contains exactly 161 data-unit-id values and zero pre elements.",
+    "All 24 protected units have one source page, rectangle, crop asset, and exact-once HTML mapping.",
+    "All protected assets are non-empty; qpdf --check passes; pdftotext contains selectable Vietnamese prose and no file:/// URLs.",
+    "UTF-8 extraction round-trips without replacement characters; output PDF contains 24 pages with consistent page geometry.",
+    "Protected SQL, execution plans, screenshots, tables, index pages, ISBN, prices and barcode are carried by source crops; no generic pre block is used."
+  ],
+  "verified_manual_checks": [
+    "Audited all 161 source-order units against source_text.txt and source_layout.txt, including headings, prose, callouts, SQL, execution plans, screenshots, MySQL tables, index pages and back matter.",
+    "Checked negation, modality, condition order, access-versus-filter distinctions, database-engine scope, identifiers and numeric values in the PostgreSQL, SQL Server and MySQL sections.",
+    "Inspected the protected-block contact sheet and representative full rendered pages for clipping, overflow, neighboring-prose capture, once-only placement and block integrity.",
+    "Read the Part 09 tail and Part 10 opening consecutively and confirmed the topic transition, terminology and lack of duplicated context."
+  ]
+}

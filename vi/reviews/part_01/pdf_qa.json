@@ -1,0 +1,112 @@
+{
+  "part_id": "part_01",
+  "artifact": "vi/parts/part_01.pdf",
+  "pdf_qa_status": "PASS_WITH_LIMITATIONS",
+  "render_engine": "Chromium Headless 149.0.0.0 for Vietnamese prose; qpdf for source-page assembly; pdftoppm 400 DPI plus ImageMagick for protected source crops",
+  "render_command": "node vi/translations/part_01/render_pdf.js",
+  "source_translation_status": "DRAFT",
+  "finalized_claim": false,
+  "audit": {
+    "typed_protected_units": 6,
+    "additional_embedded_table_blocks": 1,
+    "protected_blocks_rendered_once": 7,
+    "new_crop_assets": 6,
+    "result": "PASS"
+  },
+  "protected_block_mappings": [
+    {
+      "unit_id": "p01-u007",
+      "unit_type": "table",
+      "source": [
+        {"page": 6, "rectangle_points": "0,0,425.196,651.969"},
+        {"page": 7, "rectangle_points": "0,0,425.196,651.969"}
+      ],
+      "asset": "qpdf source-page clones",
+      "output_pages": [5, 6],
+      "render_count": 1,
+      "result": "PASS: pre-existing two-page source ToC clone; not reconstructed or duplicated"
+    },
+    {
+      "unit_id": "p01-u010",
+      "unit_type": "sql_code",
+      "source": [{"page": 8, "rectangle_points": "42,300,147,36"}],
+      "asset": "vi/assets/part_01_p01-u010.png",
+      "asset_sha256": "8246c6bb84a956f15aa5a55be7f27a4f0f0cd7d3c18d5c789383fd7f3d787f38",
+      "output_pages": [7],
+      "render_count": 1,
+      "result": "PASS"
+    },
+    {
+      "unit_id": "p01-u020",
+      "unit_type": "table",
+      "source": [{"page": 13, "rectangle_points": "56,71,327,59"}],
+      "asset": "vi/assets/part_01_p01-u020.png",
+      "asset_sha256": "4ea5ec2a529d40cae94af87834a0ee5edb202495d4e02f3add204c40f83f5034",
+      "output_pages": [11],
+      "render_count": 1,
+      "result": "PASS"
+    },
+    {
+      "unit_id": "p01-u038-table",
+      "unit_type": "embedded_table_in_sidebar",
+      "source": [{"page": 17, "rectangle_points": "244,266,125,141"}],
+      "asset": "vi/assets/part_01_p01-u038-table.png",
+      "asset_sha256": "7d620065dce1342056165353d88eaa7ae66e32aa1ee325d4f914918c84dd24b8",
+      "output_pages": [18],
+      "render_count": 1,
+      "result": "PASS: sidebar prose remains Chromium text; only the table is cloned"
+    },
+    {
+      "unit_id": "p01-u046",
+      "unit_type": "sql_code",
+      "source": [{"page": 20, "rectangle_points": "42,170,270,85"}],
+      "asset": "vi/assets/part_01_p01-u046.png",
+      "asset_sha256": "446af9569ee0d36e0e6b723356a3f6360d230499576a9b9960a963d31feb27ed",
+      "output_pages": [20],
+      "render_count": 1,
+      "result": "PASS"
+    },
+    {
+      "unit_id": "p01-u048",
+      "unit_type": "sql_code",
+      "source": [{"page": 20, "rectangle_points": "42,337,155,38"}],
+      "asset": "vi/assets/part_01_p01-u048.png",
+      "asset_sha256": "be13f5c1ff3b518c911fb51973cac38487251b3f3576b924221481c83b8809e6",
+      "output_pages": [21],
+      "render_count": 1,
+      "result": "PASS"
+    },
+    {
+      "unit_id": "p01-u050",
+      "unit_type": "execution_plan",
+      "source": [{"page": 20, "rectangle_points": "42,450,320,115"}],
+      "asset": "vi/assets/part_01_p01-u050.png",
+      "asset_sha256": "35d60d9dcdbd2782eb12f784e793af067fe241a645c0957ad1d4d6f93fe7b670",
+      "output_pages": [21],
+      "render_count": 1,
+      "result": "PASS: original columns, spacing, predicate section, and right edge are complete"
+    }
+  ],
+  "evidence": {
+    "output_sha256": "fa9484f13dad3f0b3e53a8498bc986a3727d17171ee9887e02dda0e9a479010b",
+    "pdfinfo": {"pages": 21, "page_size_points": "425.196 x 651.969", "encrypted": false},
+    "test": "bash vi/translations/part_01/test_pdf.sh: PASS. It verifies source page/rectangle/asset mappings, exactly one HTML rendering per protected block, no protected <pre>, source assets, source-page clones, qpdf, and selectable Vietnamese prose.",
+    "qpdf_check": "qpdf --check vi/parts/part_01.pdf: no syntax or stream encoding errors found",
+    "embedded_image_check": "pdfimages -list confirms protected crop images on output pages 7, 11, 18, 20, and 21.",
+    "image_layout_qa": {
+      "method": "Rendered every output page at 144 DPI and visually inspected pages 7, 11, 18, 20, and 21 against 200-DPI source-page renders; source crop bounds were checked from pdftotext -bbox glyph positions.",
+      "result": "PASS",
+      "details": [
+        "All seven protected blocks appear exactly once at their mapped output location.",
+        "No protected block is emitted as a reflowing HTML pre.",
+        "p01-u010 and p01-u046 right bounds include WINAND and the complete CONSTRAINT employee_id line.",
+        "p01-u050 on output page 21 retains the original execution-plan columns, spacing, and full predicate information without clipping."
+      ]
+    }
+  },
+  "limitations": [
+    "Protected SQL, execution-plan, and table crops are intentionally raster images and are not selectable text.",
+    "Vietnamese prose, including the non-table portions of p01-u038, remains selectable Chromium text.",
+    "The translation JSON content was not changed."
+  ]
+}

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Giải thích SQL Performance - Phần 06</title>
+<style>
+@page { size: 148mm 228mm; margin: 17mm 15mm 18mm; }
+* { box-sizing: border-box; }
+body { color: #202124; font-family: "Noto Serif", serif; font-size: 10.2pt; line-height: 1.47; margin: 0; }
+p { margin: 0 0 0.75em; orphans: 3; widows: 3; }
+h2 { break-after: avoid; color: #254b66; font-family: "Noto Sans", sans-serif; font-size: 16pt; line-height: 1.2; margin: 1.65em 0 0.7em; }
+h3 { break-after: avoid; color: #254b66; font-family: "Noto Sans", sans-serif; font-size: 11.5pt; line-height: 1.25; margin: 1em 0 0.45em; }
+figure.source-clone-figure { break-inside: avoid; margin: 1em 0 1.25em; }
+img.source-clone { display: block; height: auto; max-width: 100%; }
+.source-special-page { break-before: page; break-after: page; height: 193mm; margin: 0; overflow: hidden; width: 118mm; }
+.source-special-page img { display: block; height: 193mm; width: 118mm; }
+.callout-icon { float: left; height: 16pt; margin: 0.05em 0.55em 0.2em 0; width: 11pt; object-fit: contain; }
+.caption { break-after: avoid; color: #59656c; font-family: "Noto Sans", sans-serif; font-size: 8.7pt; font-style: italic; margin-top: 1.1em; text-align: center; }
+aside { break-inside: avoid; border-left: 3pt solid #8b9d38; margin: 1.3em 0; padding: 0.35em 0 0.35em 1em; }
+aside.important, aside.caution, aside.warning { border-left-color: #a94a3d; }
+aside.sidebar { background: #f5f7ef; border: 0.5pt solid #cbd5a8; padding: 0.8em 1em; }
+aside.think_about_it { background: #eef4f7; border-left-color: #39728d; }
+aside p:last-child { margin-bottom: 0; }
+</style>
+</head>
+<body>
+<h2 data-unit-id="p06-u001">Chapter 4: The Join Operation</h2>
+<h2 data-unit-id="p06-u002">Perl</h2>
+<section class="prose paragraph" data-unit-id="p06-u003"><p>Ví dụ sau minh họa framework DBIx::Class của Perl:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u004" data-source-page="1" data-source-rect="70,105,330,105" src="../../assets/part_06_p06-u004.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u005"><p>DBIx::Class 0.08192 generate các query select N+1:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u006" data-source-page="1" data-source-rect="70,230,330,125" src="../../assets/part_06_p06-u006.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p06-u007">PHP</h2>
+<section class="prose paragraph" data-unit-id="p06-u008"><p>Ví dụ Doctrine dùng interface query builder:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u009" data-source-page="1" data-source-rect="55,445,340,145" src="../../assets/part_06_p06-u009.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p06-u010">Nested Loops</h2>
+<section class="prose paragraph" data-unit-id="p06-u011"><p>Doctrine 2.0.5 generate các query select N+1:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u012" data-source-page="2" data-source-rect="55,90,340,145" src="../../assets/part_06_p06-u012.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p06-u013">Enabling SQL Logging</h2>
+<section class="prose paragraph" data-unit-id="p06-u014"><p>Bật SQL logging trong quá trình development và review các SQL statement được generate.</p></section>
+<h3 data-unit-id="p06-u015">DBIx::Class</h3>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u016" data-source-page="2" data-source-rect="90,300,270,25" src="../../assets/part_06_p06-u016.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h3 data-unit-id="p06-u017">Doctrine</h3>
+<section class="prose paragraph" data-unit-id="p06-u018"><p>Chỉ thực hiện ở source code level — đừng quên disable setting này trong production. Hãy cân nhắc việc tự xây dựng một configurable logger.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u019" data-source-page="2" data-source-rect="90,378,270,30" src="../../assets/part_06_p06-u019.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h3 data-unit-id="p06-u020">Hibernate (native)</h3>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u021" data-source-page="2" data-source-rect="90,425,270,35" src="../../assets/part_06_p06-u021.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h3 data-unit-id="p06-u022">JPA</h3>
+<section class="prose paragraph" data-unit-id="p06-u023"><p>Trong persistence.xml, nhưng còn tùy JPA provider:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u024" data-source-page="2" data-source-rect="90,500,270,45" src="../../assets/part_06_p06-u024.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u025"><p>Hầu hết ORM cũng cung cấp cách programmatic để enable SQL logging. Cách này có rủi ro vô tình deploy setting đó lên production.</p></section>
+<h2 data-unit-id="p06-u026">Chapter 4: The Join Operation</h2>
+<section class="prose paragraph" data-unit-id="p06-u027"><p>Dù cách tiếp cận “nested selects” là một anti-pattern, nó vẫn giải thích khá rõ nested loops join. Database thực thi join chính xác như các ORM tool ở trên. Vì vậy, indexing cho nested loops join cũng giống như indexing cho các select statement đã trình bày ở trên. Đó là function-based index trên table EMPLOYEES và concatenated index cho các join predicate trên table SALES:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u028" data-source-page="3" data-source-rect="40,150,370,35" src="../../assets/part_06_p06-u028.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u029"><p>SQL join vẫn hiệu quả hơn cách tiếp cận nested selects — dù thực hiện cùng các index lookup — vì nó tránh được nhiều network communication. Nó thậm chí còn nhanh hơn khi tổng lượng data truyền đi lớn hơn do employee attribute bị lặp lại cho mỗi sale. Đó là vì performance có hai dimension: response time và throughput; trong computer network, chúng ta gọi chúng là latency và bandwidth. Bandwidth chỉ tác động nhỏ đến response time, còn latency có tác động rất lớn. Vì vậy, số database round trip quan trọng đối với response time hơn lượng data được truyền.</p></section>
+<aside class="tip" data-unit-id="p06-u030"><img class="callout-icon" src="../../assets/part_06_image-000.png" alt=""><p>Tip</p><p>Execute join trong database.</p></aside>
+<section class="prose paragraph" data-unit-id="p06-u031"><p>Hầu hết ORM tool đều có cách tạo SQL join. Chế độ gọi là eager fetching có lẽ là cách quan trọng nhất. Nó thường được cấu hình ở property level trong entity mapping — ví dụ property employees trong class Sales. Khi đó ORM tool sẽ luôn join table EMPLOYEES khi access table SALES. Cấu hình eager fetching trong entity mapping chỉ hợp lý nếu lúc nào bạn cũng cần employee detail cùng với sales data.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u032"><p>Eager fetching phản tác dụng nếu bạn không cần child record mỗi lần access parent object. Với application dạng telephone directory, load record SALES khi hiển thị employee detail là không hợp lý. Bạn có thể cần sales data liên quan trong những trường hợp khác — nhưng không phải lúc nào cũng cần. Static configuration không giải quyết được vấn đề.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u033"><p>Để đạt performance tối ưu, bạn cần toàn quyền kiểm soát join. Các ví dụ sau cho thấy cách có được mức flexibility cao nhất bằng cách kiểm soát join behavior tại runtime.</p></section>
+<h2 data-unit-id="p06-u034">Nested Loops</h2>
+<h3 data-unit-id="p06-u035">Java</h3>
+<section class="prose paragraph" data-unit-id="p06-u036"><p>Interface JPA CriteriaBuilder cung cấp method Root&lt;&gt;.fetch() để kiểm soát join. Method này cho phép bạn chỉ định thời điểm và cách join các object được tham chiếu vào main query. Trong ví dụ này, chúng ta dùng left join để lấy tất cả employee, kể cả những employee không có sale.</p></section>
+<aside class="warning" data-unit-id="p06-u037"><img class="callout-icon" src="../../assets/part_06_image-000.png" alt=""><p>Warning</p><p>JPA và Hibernate trả về employee cho mỗi sale.</p><p>&nbsp;</p><p>Điều đó có nghĩa một employee có 30 sale sẽ xuất hiện 30 lần. Dù rất khó chịu, đây là behavior được quy định (EJB 3.0 persistency, paragraph 4.4.5.3 “Fetch Joins”). Bạn có thể tự de-duplicate parent relation hoặc dùng function distinct() như trong ví dụ.</p></aside>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u038" data-source-page="4" data-source-rect="70,310,330,150" src="../../assets/part_06_p06-u038.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u039"><p>Hibernate 3.6.0 generate SQL statement sau:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u040" data-source-page="4" data-source-rect="70,500,330,120" src="../../assets/part_06_p06-u040.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u041"><p>Query có left join như kỳ vọng nhưng cũng có keyword distinct không cần thiết. Đáng tiếc là JPA không cung cấp API call riêng để filter các parent entry bị duplicate mà không de-duplicate cả child record</p></section>
+<h2 data-unit-id="p06-u042">Chapter 4: The Join Operation</h2>
+<section class="prose paragraph" data-unit-id="p06-u043"><p>tương tự.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u044"><p>Keyword distinct trong SQL query đáng lo vì hầu hết database sẽ thực sự filter các duplicate record. Chỉ một số ít database nhận biết rằng primary key vốn đã bảo đảm tính unique trong trường hợp này.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u045" data-source-page="5" data-source-rect="70,120,330,115" src="../../assets/part_06_p06-u045.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u046"><p>Nó generate query sau:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u047" data-source-page="5" data-source-rect="70,280,330,115" src="../../assets/part_06_p06-u047.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u048"><p>Method này tạo ra SQL trực tiếp mà không có clause ngoài ý muốn. Lưu ý rằng Hibernate dùng lower() cho case-insensitive query — một chi tiết quan trọng đối với function-based indexing.</p></section>
+<h2 data-unit-id="p06-u049">Nested Loops</h2>
+<h3 data-unit-id="p06-u050">Perl</h3>
+<section class="prose paragraph" data-unit-id="p06-u051"><p>Ví dụ sau dùng framework DBIx::Class của Perl:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u052" data-source-page="6" data-source-rect="70,110,330,75" src="../../assets/part_06_p06-u052.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u053"><p>DBIx::Class 0.08192 generate SQL statement sau:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u054" data-source-page="6" data-source-rect="70,220,330,115" src="../../assets/part_06_p06-u054.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h3 data-unit-id="p06-u055">PHP</h3>
+<section class="prose paragraph" data-unit-id="p06-u056"><p>Ví dụ sau dùng framework Doctrine của PHP:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u057" data-source-page="6" data-source-rect="70,390,330,130" src="../../assets/part_06_p06-u057.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u058"><p>Doctrine 2.0.5 generate SQL statement sau:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u059" data-source-page="6" data-source-rect="70,545,330,75" src="../../assets/part_06_p06-u059.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p06-u060">Chapter 4: The Join Operation</h2>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u061" data-source-page="7" data-source-rect="45,90,340,180" src="../../assets/part_06_p06-u061.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u062"><p>Database trước tiên lấy result từ table EMPLOYEES thông qua EMP_UP_NAME, sau đó fetch các record tương ứng từ table SALES cho từng employee.</p></section>
+<aside class="tip" data-unit-id="p06-u063"><img class="callout-icon" src="../../assets/part_06_image-000.png" alt=""><p>Tip</p><p>Hiểu ORM của bạn và kiểm soát join.</p></aside>
+<section class="prose paragraph" data-unit-id="p06-u064"><p>Nested loops join cho performance tốt nếu driving query trả về một result set nhỏ. Nếu không, optimizer có thể chọn một join algorithm hoàn toàn khác — chẳng hạn hash join được mô tả trong section tiếp theo, nhưng chỉ khi application dùng join để nói cho database biết chính xác cần data nào.</p></section>
+<h2 data-unit-id="p06-u065">Hash Join</h2>
+<h2 data-unit-id="p06-u066">Hash Join</h2>
+<section class="prose paragraph" data-unit-id="p06-u067"><p>Hash join algorithm nhắm vào điểm yếu của nested loops join: nhiều lần B-tree traversal khi execute inner query. Thay vào đó, nó load các candidate record từ một phía của join vào hash table, để mỗi row từ phía còn lại có thể probe rất nhanh. Tuning hash join đòi hỏi indexing approach hoàn toàn khác nested loops join. Ngoài ra, có thể cải thiện performance của hash join bằng cách select ít column hơn — một thách thức đối với hầu hết ORM tool.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u068"><p>Indexing strategy cho hash join rất khác vì không cần index các join column. Chỉ index cho các independent where predicate mới cải thiện performance của hash join.</p></section>
+<aside class="tip" data-unit-id="p06-u069"><img class="callout-icon" src="../../assets/part_06_image-000.png" alt=""><p>Tip</p><p>Index các independent where predicate để cải thiện performance của hash join.</p></aside>
+<section class="prose paragraph" data-unit-id="p06-u070"><p>Xét ví dụ sau. Nó select toàn bộ sale trong sáu tháng vừa qua cùng employee detail tương ứng:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u071" data-source-page="8" data-source-rect="70,300,330,75" src="../../assets/part_06_p06-u071.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u072"><p>Filter SALE_DATE là where clause độc lập duy nhất — nghĩa là nó chỉ tham chiếu đến một table và không thuộc join predicate.</p></section>
+<h2 data-unit-id="p06-u073">Chapter 4: The Join Operation</h2>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u074" data-source-page="9" data-source-rect="45,70,340,175" src="../../assets/part_06_p06-u074.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u075"><p>Bước thực thi đầu tiên là full table scan để load toàn bộ employee vào hash table (plan id 2). Hash table dùng join predicate làm key. Ở bước tiếp theo, database lại full table scan table SALES và loại bỏ các sale không thỏa điều kiện SALE_DATE (plan id 3). Với những SALES record còn lại, database access hash table để load employee detail tương ứng.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u076"><p>Mục đích duy nhất của hash table là làm temporary in-memory structure để tránh access table EMPLOYEE nhiều lần. Hash table được load một lần nên không cần index để fetch từng record hiệu quả. Predicate information xác nhận không có filter nào được áp dụng trên table EMPLOYEES (plan id 2). Query không có independent predicate nào trên table này.</p></section>
+<aside class="important" data-unit-id="p06-u077"><img class="callout-icon" src="../../assets/part_06_image-000.png" alt=""><p>Important</p><p>Indexing join predicate không cải thiện performance của hash join.</p></aside>
+<section class="prose paragraph" data-unit-id="p06-u078"><p>Điều đó không có nghĩa là không thể index hash join. Independent predicate có thể được index. Đây là các condition được áp dụng trong một trong hai table access operation. Trong ví dụ trên, đó là filter trên SALE_DATE.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u079" data-source-page="9" data-source-rect="40,510,370,35" src="../../assets/part_06_p06-u079.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u080"><p>Execution plan sau dùng index này. Tuy nhiên, nó vẫn dùng full table scan cho table EMPLOYEES vì query không có independent where predicate trên EMPLOYEES.</p></section>
+<h2 data-unit-id="p06-u081">Hash Join</h2>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u082" data-source-page="10" data-source-rect="45,80,340,155" src="../../assets/part_06_p06-u082.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u083"><p>Indexing hash join là symmetric — trái ngược với nested loops join. Nghĩa là join order không ảnh hưởng đến indexing. Index SALES_DATE vẫn có thể được dùng để load hash table nếu đảo ngược join order.</p></section>
+<aside class="note" data-unit-id="p06-u084"><img class="callout-icon" src="../../assets/part_06_image-000.png" alt=""><p>Note</p><p>Indexing hash join độc lập với join order.</p></aside>
+<section class="prose paragraph" data-unit-id="p06-u085"><p>Một approach khá khác để tối ưu hash join performance là minimize kích thước hash table. Cách này hiệu quả vì hash join tối ưu chỉ có thể xảy ra khi toàn bộ hash table vừa trong memory. Vì vậy optimizer sẽ tự động dùng phía nhỏ hơn của join làm hash table. Oracle execution plan hiển thị memory requirement được estimate trong column “Bytes”. Trong execution plan ở trên, table EMPLOYEES cần chín megabyte nên là phía nhỏ hơn.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u086"><p>Cũng có thể giảm kích thước hash table bằng cách thay đổi SQL query, chẳng hạn thêm condition để database load ít candidate record hơn vào hash table. Tiếp tục ví dụ trên, điều đó có nghĩa thêm filter trên attribute DEPARTMENT để chỉ xét sales staff. Cách này cải thiện hash join performance ngay cả khi không có index trên attribute DEPARTMENT, vì database không cần lưu những employee không thể có sale vào hash table. Khi làm vậy, bạn phải chắc chắn không có SALES record nào thuộc employee không làm việc trong department tương ứng. Hãy dùng constraint để bảo vệ các assumption.</p></section>
+<h2 data-unit-id="p06-u087">Chapter 4: The Join Operation</h2>
+<section class="prose paragraph" data-unit-id="p06-u088"><p>Khi minimize kích thước hash table, factor quan trọng không phải số row mà là memory footprint. Thực tế, cũng có thể giảm kích thước hash table bằng cách select ít column hơn — chỉ những attribute thực sự cần:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u089" data-source-page="11" data-source-rect="55,125,340,75" src="../../assets/part_06_p06-u089.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u090"><p>Cách này hiếm khi tạo bug vì bỏ nhầm column có lẽ sẽ nhanh chóng dẫn đến error message. Tuy nhiên, vẫn có thể cắt giảm đáng kể kích thước hash table; trong trường hợp này từ 9 megabyte xuống 234 kilobytes — giảm 97%.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u091" data-source-page="11" data-source-rect="45,255,340,120" src="../../assets/part_06_p06-u091.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<aside class="tip" data-unit-id="p06-u092"><img class="callout-icon" src="../../assets/part_06_image-000.png" alt=""><p>Tip</p><p>Select ít column hơn để cải thiện hash join performance.</p></aside>
+<section class="prose paragraph" data-unit-id="p06-u093"><p>Thoạt nhìn, việc bỏ vài column khỏi SQL statement có vẻ đơn giản, nhưng đây là thách thức thực sự khi dùng object-relational mapping (ORM) tool. Support cho cái gọi là partial object rất hạn chế. Các ví dụ sau cho thấy một số khả năng.</p></section>
+<h3 data-unit-id="p06-u094">Java</h3>
+<section class="prose paragraph" data-unit-id="p06-u095"><p>JPA định nghĩa FetchType.LAZY trong annotation @Basic. Nó có thể được áp dụng ở property level:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u096" data-source-page="11" data-source-rect="55,535,340,55" src="../../assets/part_06_p06-u096.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h2 data-unit-id="p06-u097">Hash Join</h2>
+<section class="prose paragraph" data-unit-id="p06-u098"><p>JPA provider được tự do ignore nó:</p></section>
+<section class="prose quote" data-unit-id="p06-u099"><p>LAZY strategy là một hint cho persistence provider runtime rằng data nên được fetch lazily khi lần đầu được access. Implementation được phép eagerly fetch data mà LAZY strategy hint đã được chỉ định.</p><p>—EJB 3.0 JPA, paragraph 9.1.18</p></section>
+<section class="prose paragraph" data-unit-id="p06-u100"><p>Hibernate 3.6 implement lazy property fetching thông qua compile-time bytecode instrumentation. Instrumentation thêm code vào các compiled class và không fetch LAZY property cho đến khi property được access. Approach này hoàn toàn transparent với application, nhưng mở ra một dimension mới của N+1 problem: một select cho mỗi record và property. Điều này đặc biệt nguy hiểm vì JPA không cung cấp runtime control để eager fetch khi cần.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u101"><p>Native query language HQL của Hibernate giải quyết vấn đề bằng clause FETCH ALL PROPERTIES:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u102" data-source-page="12" data-source-rect="90,310,270,55" src="../../assets/part_06_p06-u102.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u103"><p>Clause FETCH ALL PROPERTIES buộc Hibernate eager fetch entity — ngay cả khi dùng instrumented code và LAZY annotation.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u104"><p>Một option khác để chỉ load các column được chọn là dùng data transport object (DTO) thay cho entity. Method này hoạt động giống nhau trong HQL và JPQL, tức là initialize một object ngay trong query:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u105" data-source-page="12" data-source-rect="70,450,300,65" src="../../assets/part_06_p06-u105.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u106"><p>Query chỉ select data được yêu cầu và trả về object SalesHeadDTO — một Java object đơn giản (POJO), không phải entity.</p></section>
+<h2 data-unit-id="p06-u107">Chapter 4: The Join Operation</h2>
+<h3 data-unit-id="p06-u108">Perl</h3>
+<section class="prose paragraph" data-unit-id="p06-u109"><p>Framework DBIx::Class không đóng vai trò entity manager nên inheritance không gây ra vấn đề aliasing.¹ Cookbook hỗ trợ approach này. Schema definition sau định nghĩa class Sales ở hai level:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u110" data-source-page="13" data-source-rect="55,150,340,180" src="../../assets/part_06_p06-u110.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u111"><p>Class Sales được derived từ class SalesHead và bổ sung attribute còn thiếu. Bạn có thể dùng cả hai class tùy nhu cầu. Lưu ý rằng table setup cũng bắt buộc phải có trong derived class.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u112"><p>Bạn có thể fetch toàn bộ employee detail bằng prefetch hoặc chỉ các column được chọn như dưới đây:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u113" data-source-page="13" data-source-rect="55,405,340,95" src="../../assets/part_06_p06-u113.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u114"><p>Không thể chỉ load các column được chọn từ root table — trong trường hợp này là SalesHead.</p></section>
+<section class="prose footnote" data-unit-id="p06-u115"><p>1</p></section>
+<section class="prose footnote" data-unit-id="p06-u116"><p>http://en.wikipedia.org/wiki/Aliasing_%28computing%29</p></section>
+<h2 data-unit-id="p06-u117">Hash Join</h2>
+<section class="prose paragraph" data-unit-id="p06-u118"><p>DBIx::Class 0.08192 generate SQL sau. Nó fetch toàn bộ column từ table SALES và các attribute được chọn từ EMPLOYEES:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u119" data-source-page="14" data-source-rect="55,100,340,140" src="../../assets/part_06_p06-u119.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<h3 data-unit-id="p06-u120">PHP</h3>
+<section class="prose paragraph" data-unit-id="p06-u121"><p>Version 2 của framework Doctrine hỗ trợ attribute selection tại runtime. Documentation nói rằng partially loaded object có thể behave oddly và yêu cầu dùng keyword partial để acknowledge risk. Ngoài ra, bạn phải select rõ các primary key column:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u122" data-source-page="14" data-source-rect="55,325,340,100" src="../../assets/part_06_p06-u122.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u123"><p>SQL được generate chứa các column được yêu cầu và một lần nữa có SUBSIDIARY_ID cùng EMPLOYEE_ID từ table SALES.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u124" data-source-page="15" data-source-rect="55,70,340,155" src="../../assets/part_06_p06-u124.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u125"><p>Các object được trả về tương thích với object đã load đầy đủ, nhưng các column thiếu vẫn ở trạng thái chưa initialize. Access chúng không trigger exception.</p></section>
+<aside class="warning" data-unit-id="p06-u126"><img class="callout-icon" src="../../assets/part_06_image-000.png" alt=""><p>Warning</p><p>MySQL hoàn toàn không support hash join (feature request #59025).</p></aside>
+<h2 data-unit-id="p06-u127">Chapter 4: The Join Operation</h2>
+<h2 data-unit-id="p06-u128">Sort Merge</h2>
+<h2 data-unit-id="p06-u129">Sort Merge</h2>
+<section class="prose paragraph" data-unit-id="p06-u130"><p>Sort-merge join kết hợp hai sorted list giống như một zipper. Cả hai phía của join đều phải được sort theo join predicate.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u131"><p>Sort-merge join cần cùng loại index như hash join, tức là index cho các independent condition để đọc toàn bộ candidate record trong một lần.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u132"><p>Indexing join predicate là vô ích. Cho đến đây, mọi thứ giống hash join. Tuy nhiên, sort-merge join có một đặc tính riêng: symmetry tuyệt đối. Join order không tạo khác biệt — kể cả về performance. Tính chất này đặc biệt hữu ích cho outer join. Với các algorithm khác, hướng của outer join (left hay right) quyết định join order — nhưng không phải với sort-merge join. Sort-merge join thậm chí có thể thực hiện left và right outer join cùng lúc — cái gọi là full outer join.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u133"><p>Dù sort-merge join hoạt động rất tốt khi input đã được sort, nó hiếm khi được dùng vì sort cả hai phía rất tốn kém. Ngược lại, hash join chỉ cần preprocess một phía.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u134"><p>Điểm mạnh của sort-merge join xuất hiện khi input đã được sort sẵn. Có thể đạt điều này bằng cách khai thác thứ tự của index để tránh hoàn toàn các sort operation. Chapter 6, “Sorting and Grouping”, giải thích chi tiết concept này.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u135"><p>Dù vậy, hash join algorithm vẫn vượt trội trong nhiều trường hợp.</p></section>
+<div class="source-special-page" data-unit-id="p06-u136"><img src="../../assets/part_06_special_p17.png" alt="Trang nguồn được sao chép nguyên trạng"></div>
+<h2 data-unit-id="p06-u137">Chapter 5</h2>
+<h2 data-unit-id="p06-u138">Clustering Data</h2>
+<h2 data-unit-id="p06-u139">The Second Power of Indexing</h2>
+<section class="prose paragraph" data-unit-id="p06-u140"><p>Thuật ngữ cluster được dùng trong nhiều lĩnh vực. Chẳng hạn, star cluster là một nhóm ngôi sao. Computer cluster lại là một nhóm computer làm việc chặt chẽ với nhau — để giải quyết một bài toán phức tạp (high-performance computing cluster) hoặc tăng availability (failover cluster). Nói chung, cluster là những thứ có liên quan và xuất hiện cùng nhau.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u141"><p>Trong computing còn có một loại cluster khác — loại thường bị hiểu sai: data cluster. Clustering data nghĩa là lưu những data được access liên tiếp ở gần nhau để việc access cần ít IO operation hơn. Data cluster rất quan trọng đối với database tuning. Computer cluster cũng rất phổ biến trong ngữ cảnh database — khiến thuật ngữ cluster trở nên mơ hồ. Câu “Let’s use a cluster to improve database performance” là một ví dụ; nó có thể nói đến computer cluster nhưng cũng có thể nghĩa là data cluster. Trong chapter này, cluster nói chung sẽ chỉ data cluster.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u142"><p>Data cluster đơn giản nhất trong SQL database là row. Database lưu tất cả column của một row trong cùng database block nếu có thể. Có ngoại lệ nếu row không vừa trong một block — ví dụ khi có LOB type.</p></section>
+<h2 data-unit-id="p06-u143">Column Stores</h2>
+<section class="prose paragraph" data-unit-id="p06-u144"><p>Các database dạng column-oriented, hay column-store, tổ chức table theo column. Model này có lợi khi access nhiều row nhưng chỉ một vài column — một pattern rất phổ biến trong data warehouse (OLAP).</p></section>
+<h2 data-unit-id="p06-u145">Chapter 5: Clustering Data</h2>
+<section class="prose paragraph" data-unit-id="p06-u146"><p>Index cho phép cluster data. Cơ sở của điều này đã được giải thích trong Chapter 1, “Anatomy of an Index”: index leaf node lưu indexed column theo thứ tự, nên các value tương tự được lưu cạnh nhau. Điều đó có nghĩa index xây dựng các cluster gồm những row có value tương tự.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u147"><p>Khả năng cluster data quan trọng đến mức tôi gọi nó là power thứ hai của indexing.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u148"><p>Các section sau giải thích cách dùng index để cluster data và cải thiện query performance.</p></section>
+<h2 data-unit-id="p06-u149">Index Filter Predicates Used Intentionally</h2>
+<section class="prose paragraph" data-unit-id="p06-u150"><p>Rất thường xuyên, index filter predicate cho thấy index được dùng không đúng do column order sai trong concatenated index. Tuy nhiên, index filter predicate cũng có thể được dùng có chủ đích — không phải để cải thiện range scan performance mà để nhóm những data được access liên tiếp lại với nhau.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u151"><p>Các predicate trong where clause không thể làm access predicate là candidate tốt cho kỹ thuật này:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u152" data-source-page="19" data-source-rect="70,470,330,70" src="../../assets/part_06_p06-u152.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u153"><p>Hãy nhớ rằng LIKE expression có wildcard ở đầu không thể dùng index tree. Nghĩa là indexing LAST_NAME không thu hẹp index range được scan — bất kể bạn index LAST_NAME hay UPPER(last_name). Vì vậy condition này không phải candidate tốt để indexing.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u154"><p>Tuy nhiên, condition trên SUBSIDIARY_ID rất phù hợp để indexing. Chúng ta thậm chí không cần thêm index mới vì SUBSIDIARY_ID đã là leading column trong index của primary key.</p></section>
+<h2 data-unit-id="p06-u155">Index Filter Predicates Used Intentionally</h2>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u156" data-source-page="20" data-source-rect="45,78,340,130" src="../../assets/part_06_p06-u156.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u157"><p>Trong execution plan ở trên, cost value tăng một trăm lần từ INDEX RANGE SCAN đến TABLE ACCESS BY INDEX ROWID tiếp theo. Nói cách khác, table access thực hiện phần lớn công việc. Đây thực sự là pattern phổ biến và bản thân nó không phải vấn đề. Tuy nhiên, nó là contributor đáng kể nhất vào overall execution time của query này.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u158"><p>Table access không nhất thiết là bottleneck nếu các row được access nằm trong một table block, vì database có thể fetch toàn bộ row bằng một read operation. Ngược lại, nếu các row đó nằm rải rác trong nhiều block, table access có thể trở thành performance problem nghiêm trọng vì database phải fetch nhiều block để lấy toàn bộ row. Nghĩa là performance phụ thuộc vào physical distribution của các row — nói cách khác, phụ thuộc vào clustering của row.</p></section>
+<aside class="note" data-unit-id="p06-u159"><img class="callout-icon" src="../../assets/part_06_image-000.png" alt=""><p>Note</p><p>Mối tương quan giữa index order và table order là một performance benchmark — cái gọi là index clustering factor.</p></aside>
+<section class="prose paragraph" data-unit-id="p06-u160"><p>Thực tế có thể cải thiện query performance bằng cách sắp xếp lại row trong table để chúng tương ứng với index order. Tuy nhiên, method này hiếm khi áp dụng được vì bạn chỉ có thể lưu table row theo một sequence. Nghĩa là bạn chỉ có thể optimize table cho một index. Ngay cả khi chọn được một index duy nhất để optimize table, đây vẫn là task khó vì hầu hết database chỉ cung cấp tool rất sơ sài cho việc này. Cái gọi là row sequencing rốt cuộc là một approach khá không thực tế.</p></section>
+<h2 data-unit-id="p06-u161">Chapter 5: Clustering Data</h2>
+<h2 data-unit-id="p06-u162">The Index Clustering Factor</h2>
+<section class="prose paragraph" data-unit-id="p06-u163"><p>Index clustering factor là indirect measure của xác suất hai index entry liên tiếp tham chiếu đến cùng một table block. Optimizer tính đến xác suất này khi tính cost value của operation TABLE ACCESS BY INDEX ROWID.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u164"><p>Đây chính là nơi power thứ hai của indexing — clustering data — phát huy tác dụng. Bạn có thể thêm nhiều column vào index để chúng tự động được lưu theo một order được xác định rõ. Điều đó biến index thành một tool mạnh nhưng đơn giản để cluster data.</p></section>
+<section class="prose paragraph" data-unit-id="p06-u165"><p>Để áp dụng concept này vào query ở trên, chúng ta phải mở rộng index để cover toàn bộ column trong where clause — kể cả những column không thu hẹp index range được scan:</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u166" data-source-page="21" data-source-rect="40,265,370,55" src="../../assets/part_06_p06-u166.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u167"><p>Column SUBSIDIARY_ID là index column đầu tiên nên có thể được dùng làm access predicate. Expression UPPER(last_name) cover LIKE filter dưới dạng index filter predicate. Index biểu diễn uppercase giúp tiết kiệm một vài CPU cycle trong quá trình execute, nhưng index thông thường trên LAST_NAME cũng hoạt động. Bạn sẽ tìm hiểu thêm về điều này trong section tiếp theo.</p></section>
+<figure class="source-clone-figure"><img class="source-clone" data-unit-id="p06-u168" data-source-page="21" data-source-rect="45,365,340,140" src="../../assets/part_06_p06-u168.png" alt="Nguồn gốc được sao chép nguyên trạng"></figure>
+<section class="prose paragraph" data-unit-id="p06-u169"><p>Execution plan mới hiển thị chính các operation như trước. Dù vậy, cost value đã giảm đáng kể. Trong predicate information, chúng ta thấy LIKE filter đã được áp dụng ngay trong INDEX RANGE SCAN. Các row không thỏa LIKE filter bị loại ngay lập tức. Table access không còn filter predicate nào nữa. Nghĩa là nó không load những row không thỏa where clause.</p></section>
+</body>
+</html>

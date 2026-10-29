@@ -1,0 +1,39 @@
+{
+  "part_id": "part_05",
+  "rule_version": "1.0",
+  "source_unit_count": 148,
+  "translated_unit_count": 148,
+  "coverage_check": "PASS",
+  "code_integrity_check": "PASS",
+  "local_status": "LOCAL_QA_PASSED",
+  "boundary_status": "PASS",
+  "final_status": "FINALIZED",
+  "findings": [],
+  "boundary_review": {
+    "previous_part_id": "part_04",
+    "next_part_id": "part_06",
+    "referents_checked": [
+      "Part 04 closes by introducing the single-query Smart Logic example; Part 05 opens with that exact query and immediately explains its optional NULL filters.",
+      "Part 05 closes with Java and Hibernate N+1 select output; Part 06 continues the same Nested Loops and ORM discussion with Perl and PHP examples without repeating the Java material."
+    ],
+    "terminology_conflicts": [],
+    "continuity_issues": []
+  },
+  "glossary_change_proposals": [],
+  "unresolved_questions": [],
+  "verified_automated_checks": [
+    "JSON parsed with jq.",
+    "source_unit_ids exactly equal the ordered translation unit IDs: 148/148, with no missing, extra, or duplicate IDs.",
+    "Generated HTML contains exactly 148 data-unit-id values.",
+    "All 24 protected SQL/code/execution-plan/figure/output units have source-page, rectangle, crop-asset, and exact-once regression mappings.",
+    "Protected blocks are not rendered as HTML pre elements; Vietnamese prose remains selectable in pdftotext output.",
+    "qpdf --check passes for vi/parts/part_05.pdf and Unicode extraction round-trips through iconv without replacement characters or file URLs."
+  ],
+  "verified_manual_checks": [
+    "Audited all 148 semantic units against the complete Part 05 English extraction and layout, including headings, paragraphs, warnings, tips, notes, important callouts, captions, footnotes, URLs, SQL, Java code, execution plans, generated SQL, and figures.",
+    "Checked Smart Logic NULL semantics, bind-parameter behavior, plan-cache behavior across database vendors, arithmetic obfuscation, function-based indexes, access-versus-filter predicates, data-volume and system-load scaling, response time versus throughput, consistency trade-offs, disk seek and caching, join ordering, pipelining, nested loops, and the N+1 problem.",
+    "Verified protected identifiers, literals, operators, execution-plan operation names, numeric values, chart labels, source typo SACLE_SLOW, Java comments, SQL output, and URLs remain source-authoritative through exact crops.",
+    "Read the reviewed Part 04 tail with the Part 05 opening and the Part 05 tail with the Part 06 source-only opening; both transitions are explicit, non-duplicative, and preserve the active argument.",
+    "Reviewed the rendered output contact sheet and all protected crop assets for page clipping, overflow, source-crop completeness, table integrity, and separation from Vietnamese prose."
+  ]
+}

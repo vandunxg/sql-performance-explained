@@ -1,0 +1,63 @@
+{
+  "part_id": "part_05",
+  "artifact": "vi/parts/part_05.pdf",
+  "pdf_qa_status": "PASS",
+  "render_engine": "Chromium Headless 149.0.0.0 for Vietnamese prose; qpdf for PDF assembly; pdftoppm 400 DPI plus ImageMagick for protected source crops",
+  "render_command": "node vi/translations/part_05/render_pdf.js",
+  "source_translation_status": "DRAFT",
+  "finalized_claim": false,
+  "audit": {
+    "source_pages": 21,
+    "output_pages": 23,
+    "front_matter_pages_cloned": 0,
+    "front_matter_note": "Part 05 source PDF begins with Chapter 2 content; no cover, title, or ToC pages are present to clone.",
+    "typed_protected_units": 24,
+    "protected_blocks_rendered_once": 24,
+    "new_crop_assets": 24,
+    "translation_units_rendered": 148,
+    "result": "PASS"
+  },
+  "protected_block_mappings": [
+    {"unit_id":"p05-u002","source":[{"page":1,"rectangle_points":"60,70,305,60"}],"asset":"vi/assets/part_05_p05-u002.png","asset_sha256":"8fdb70c0aa2afb14d42a8f2b4d96eba7f4f879eca60c7f824691515abc7a2408","output_pages":[1],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u006","source":[{"page":1,"rectangle_points":"60,282,320,132"}],"asset":"vi/assets/part_05_p05-u006.png","asset_sha256":"ec9ad1f8b6f408903c2351b278958504a17e8f32c4b6c22f52000fd14008f20f","output_pages":[1],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u009","source":[{"page":1,"rectangle_points":"60,520,320,70"}],"asset":"vi/assets/part_05_p05-u009.png","asset_sha256":"6647de7e16a79e90566a2411301585ee06d24a089f8922db141a631224baaef4","output_pages":[2],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u010","source":[{"page":2,"rectangle_points":"47,72,338,119"}],"asset":"vi/assets/part_05_p05-u010.png","asset_sha256":"699200945731ba61c4acf0b344d49d378acb63443899ea1a193c5d042b3dcc3f","output_pages":[2],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u014","source":[{"page":2,"rectangle_points":"47,350,320,42"}],"asset":"vi/assets/part_05_p05-u014.png","asset_sha256":"2543020b644d42b4d053e77caa162660e95addec3229592ba3bf48cacbf2a0f8","output_pages":[2],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u040","source":[{"page":5,"rectangle_points":"60,170,270,50"}],"asset":"vi/assets/part_05_p05-u040.png","asset_sha256":"311f355ed3e6bc91c77824e8da895b3e4c218288cc6295079feb69af9d815c8f","output_pages":[6],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u042","source":[{"page":5,"rectangle_points":"60,250,270,50"}],"asset":"vi/assets/part_05_p05-u042.png","asset_sha256":"4d67523a3758f50cd616d6081ec1368fbd7cf0d121a5dedaf3a78a46f9a24756","output_pages":[6],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u045","source":[{"page":5,"rectangle_points":"60,375,270,50"}],"asset":"vi/assets/part_05_p05-u045.png","asset_sha256":"ff3437783530fae2739f6dbd7a2ddf1c990190307c49ccd6c5bf3fafcc3c535a","output_pages":[6],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u047","source":[{"page":5,"rectangle_points":"60,466,270,50"}],"asset":"vi/assets/part_05_p05-u047.png","asset_sha256":"d55324c2713f186b47b82081ff23fb78ad39a287dd1e6cee6371378615fca74b","output_pages":[6],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u049","source":[{"page":5,"rectangle_points":"60,555,330,35"}],"asset":"vi/assets/part_05_p05-u049.png","asset_sha256":"75337b0d19d4e465c70889091d6533ea4748ddfc2e5d76f65c5c7a326971f200","output_pages":[7],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u062","source":[{"page":8,"rectangle_points":"47,250,310,55"}],"asset":"vi/assets/part_05_p05-u062.png","asset_sha256":"aae05ee7a49eedf046c7f7d81b8499e668d52b035fca865e9fb333672c68e61f","output_pages":[8],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u065","source":[{"page":8,"rectangle_points":"117,385,195,115"}],"asset":"vi/assets/part_05_p05-u065.png","asset_sha256":"6c8439632c8956a242dc09816e623a200725ff9bef45bea7ffda8a69e85d65cd","output_pages":[9],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u070","source":[{"page":9,"rectangle_points":"50,230,330,130"}],"asset":"vi/assets/part_05_p05-u070.png","asset_sha256":"fa54ba4f122b9fa1941ad4936c30be05ada0db0652af395ee933455058f4f762","output_pages":[10],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u075","source":[{"page":10,"rectangle_points":"45,100,330,100"}],"asset":"vi/assets/part_05_p05-u075.png","asset_sha256":"911c2fec438136f4e7488535a02c41f38fd11b116f8f10860c5696a90f6a28f6","output_pages":[10],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u076","source":[{"page":10,"rectangle_points":"45,195,330,75"}],"asset":"vi/assets/part_05_p05-u076.png","asset_sha256":"a3a41df436430e5754f44534607cb61c893d025437c278aa74b56b5d31e62413","output_pages":[10],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u082","source":[{"page":11,"rectangle_points":"47,70,330,132"}],"asset":"vi/assets/part_05_p05-u082.png","asset_sha256":"bf98116cc2a641d409ba2cd7fa2f30bb1d6f72764dc2a854f4e8407b58d35b64","output_pages":[11],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u083","source":[{"page":11,"rectangle_points":"47,202,330,100"}],"asset":"vi/assets/part_05_p05-u083.png","asset_sha256":"1d1386204466e5eae671a3dc174b75ec8016e4638a8669863829270143f73b34","output_pages":[12],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u089","source":[{"page":12,"rectangle_points":"47,165,330,28"}],"asset":"vi/assets/part_05_p05-u089.png","asset_sha256":"2a8a791d3ba44efa80e1efa798305220a60d89397df06ae4e6cbcda94602e03a","output_pages":[12],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u092","source":[{"page":12,"rectangle_points":"47,300,330,32"}],"asset":"vi/assets/part_05_p05-u092.png","asset_sha256":"c2ed28d72fa4a8d2a509f750de0d89453c8bea33c61aeeb5ab887cac12384cd4","output_pages":[12],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u099","source":[{"page":13,"rectangle_points":"60,345,330,200"}],"asset":"vi/assets/part_05_p05-u099.png","asset_sha256":"d0739730e10896d63cf3ea19feea5b5f9a4ac2221466b4429dcf6159de95632e","output_pages":[13],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u104","source":[{"page":14,"rectangle_points":"55,230,330,130"}],"asset":"vi/assets/part_05_p05-u104.png","asset_sha256":"888378dbbd9999483ddda7b1d253a8c4b090a37e262f5da05f673daaa6012084","output_pages":[14],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u117","source":[{"page":16,"rectangle_points":"55,155,330,125"}],"asset":"vi/assets/part_05_p05-u117.png","asset_sha256":"12f491659c3f99deeac70ac014f7eb5d099b55db352c8a388e1e2608396e9aa1","output_pages":[16],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u146","source":[{"page":21,"rectangle_points":"70,118,325,200"}],"asset":"vi/assets/part_05_p05-u146.png","asset_sha256":"f26acb33ca1df450df0e2ed3c123f76677f3433f6d6bac325cca51f8026535ca","output_pages":[22],"render_count":1,"result":"PASS"},
+    {"unit_id":"p05-u148","source":[{"page":21,"rectangle_points":"70,340,325,185"}],"asset":"vi/assets/part_05_p05-u148.png","asset_sha256":"c3ed0d7837f893c05b308d8d1a482f60eadca95b863e9b7ef6a836c537c2453e","output_pages":[23],"render_count":1,"result":"PASS"}
+  ],
+  "evidence": {
+    "output_sha256": "1c310b0281fa74a60be8b5cbab95be2404ca02b5a9de4a1064f829275bd6e183",
+    "pdfinfo": {"pages":23,"page_size_points":"420 x 646.08","encrypted":false},
+    "qpdf_check": "PASS: qpdf --check vi/parts/part_05.pdf",
+    "test": "PASS: bash vi/translations/part_05/test_pdf.sh",
+    "unit_coverage": "PASS: 148 translation entries and 148 HTML data-unit-id values",
+    "protected_clone_contract": "PASS: 24 source-clone img elements, 24 crop assets, zero protected pre blocks, each source page/rectangle mapping present once",
+    "embedded_image_check": "PASS: pdfimages -list reports 24 protected images on output pages 1 through 23",
+    "text_extraction": "PASS: pdftotext returns Vietnamese prose; zero file:/// URLs; UTF-8 round-trip through iconv passed with zero replacement characters",
+    "page_render_check": "PASS: all 23 output pages rendered at 144 DPI with consistent 840x1293 PNG dimensions; contact-sheet review found no blank-page, clipping, overflow, or block-boundary anomalies",
+    "source_region_check": "PASS: all 24 crops were generated from their recorded source page and rectangle at 400 DPI; protected regions were rechecked after crop corrections"
+  },
+  "limitations": [
+    "Protected SQL, code, execution-plan, generated-output, and figure crops are raster images and are not selectable text by policy.",
+    "Vietnamese prose remains selectable Chromium text.",
+    "Part 05 translation.json remains marked DRAFT to match the established pipeline convention; completion is recorded in the review and progress artifacts."
+  ]
+}

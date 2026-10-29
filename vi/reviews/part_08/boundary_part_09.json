@@ -1,0 +1,31 @@
+{
+  "from_part_id": "part_08",
+  "to_part_id": "part_09",
+  "rule_version": "1.0",
+  "boundary_status": "BOUNDARY_QA_PASSED",
+  "final_status": "FINALIZED",
+  "previous_tail": [
+    {"unit_id":"p08-u147","source_text":"This variant only uses including conditions and is probably easier to understand— for human beings, at least. Databases have a different point of view. They do not recognize that the where clause selects all rows starting with the respective SALE_DATE/SALE_ID pair —provided that the SALE_DATE is the same for both branches. Instead, the database uses the entire where clause as filter predicate.","translated_text":"Biến thể này chỉ dùng các điều kiện bao hàm và có lẽ dễ hiểu hơn — ít nhất là với con người. Database có cách nhìn khác. Chúng không nhận ra rằng where clause select tất cả row bắt đầu từ cặp SALE_DATE/SALE_ID tương ứng — với điều kiện SALE_DATE giống nhau ở cả hai nhánh. Ít nhất chúng ta có thể kỳ vọng optimizer “factor condition SALE_DATE <= ? out” khỏi hai nhánh OR, nhưng không database nào cung cấp service này. Tuy vậy, chúng ta có thể tự thêm condition dư thừa này — dù nó không làm tăng readability:"},
+    {"unit_id":"p08-u148","source_text":"WHERE sale_date <= ?\nAND (\n(sale_date < ?)\nOR\n(sale_date = ? AND sale_id < ?)\n)","translated_text":"WHERE sale_date <= ?\nAND (\n(sale_date < ?)\nOR\n(sale_date = ? AND sale_id < ?)\n)"},
+    {"unit_id":"p08-u149","source_text":"Luckily, all databases are able to use the this part of the where clause as access predicate. That clause is, however, even harder to grasp as the approximation logic shown above. Further, the original logic avoids the risk that the “unnecessary” (redundant) part is accidentally removed from the where clause later on.","translated_text":"May mắn là tất cả database đều có thể dùng phần này của where clause làm access predicate. Tuy nhiên, clause đó còn khó nắm bắt hơn cả logic xấp xỉ được trình bày ở trên. Hơn nữa, logic ban đầu tránh được rủi ro phần “không cần thiết” (dư thừa) vô tình bị xóa khỏi where clause về sau."}
+  ],
+  "next_head": [
+    {"unit_id":"p09-u001","source_text":"Chapter 7: Partial Results","translated_text":"Chapter 7: Partial Results"},
+    {"unit_id":"p09-u002","source_text":"Using Window Functions for Pagination","translated_text":"Dùng Window Function cho Pagination"},
+    {"unit_id":"p09-u003","source_text":"Window functions offer yet another way to implement pagination in SQL.","translated_text":"Window function cung cấp thêm một cách để implement pagination trong SQL."},
+    {"unit_id":"p09-u004","source_text":"This is a flexible, and above all, standards-compliant method. However, only SQL Server and the Oracle database can use them for a pipelined top-N query.","translated_text":"Đây là một method linh hoạt và trên hết là tuân thủ SQL standard. Tuy nhiên, chỉ SQL Server và Oracle database mới có thể dùng chúng cho pipelined top-N query."}
+  ],
+  "checks": {
+    "read_without_part_labels": true,
+    "referents_checked": ["this part of the where clause", "access predicate", "window functions", "pagination", "pipelined top-N query"],
+    "terminology_conflicts": [],
+    "polarity_or_condition_changes": [],
+    "duplication_or_gap": false,
+    "issues": []
+  },
+  "evidence": [
+    "Part 08 closes with the distinction between filter-predicate logic and access-predicate form; Part 09 starts a new pagination topic without losing the handoff context.",
+    "The Part 09 opening preserves the source engine-specific limitations for pipelined top-N execution and leads into the ROW_NUMBER example.",
+    "Part 09 HTML and PDF contain only p09 unit IDs, so Part 08 context is not duplicated in the Part 09 translation or PDF."
+  ]
+}

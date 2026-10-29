@@ -1,0 +1,36 @@
+{
+  "part_id": "part_02",
+  "rule_version": "1.0",
+  "source_unit_count": 92,
+  "translated_unit_count": 92,
+  "coverage_check": "PASS",
+  "code_integrity_check": "PASS",
+  "local_status": "LOCAL_QA_PASSED",
+  "boundary_status": "PASS",
+  "final_status": "FINALIZED",
+  "findings": [
+    {"finding_id":"QA-002-001","severity":"MAJOR","unit_id":"p02-u076","source_quote":"does not update the table statistics when creating a new index","translated_quote":"Oracle database không cập nhật table statistics khi tạo index mới","issue":"The source sentence was split across the page boundary and initially risked losing its causal subject.","proposed_fix":"Keep the subject Oracle database and attach the page-continuation clause to the statistics explanation.","status":"FIXED"},
+    {"finding_id":"QA-002-002","severity":"MAJOR","unit_id":"p02-u091","source_quote":"Only functions that always return the same result for the same parameters ... can be indexed.","translated_quote":"Chỉ function luôn trả về cùng kết quả cho cùng parameter ... mới có thể được index.","issue":"Determinism condition must remain a necessary condition, not a recommendation.","proposed_fix":"Retained the exclusive 'Chỉ ... mới' construction.","status":"FIXED"}
+  ],
+  "boundary_review": {
+    "previous_part_id": "part_01",
+    "next_part_id": "part_03",
+    "referents_checked": ["p02-u002's tree traversal refers to p01-u049's primary-key lookup", "p02-u004's bottleneck contrast refers to Part 01's slow-index ingredients"],
+    "terminology_conflicts": [],
+    "continuity_issues": []
+  },
+  "glossary_change_proposals": [],
+  "unresolved_questions": [],
+  "verified_automated_checks": [
+    "JSON parsed with jq.",
+    "92 source unit IDs and 92 translation entries; no missing, extra, or duplicate IDs.",
+    "All 23 protected SQL/code/execution-plan/image units were compared as verbatim source-to-target text or preserved asset references."
+  ],
+  "verified_manual_checks": [
+    "Audited all 92 units against source_layout.txt and source_text.txt for prose completeness, negation, modality, numeric values, and causal relationships.",
+    "Checked all primary-key, concatenated-index, full-table-scan, optimizer-statistics, function-based-index, deterministic-function, and over-indexing claims for SQL semantic fidelity.",
+    "Read p01-u047/p01-u049/p01-u050 into p02-u001 through p02-u004; boundary result is documented separately for Part 01.",
+    "Read p02-u067 through p02-u069 against the opening source-only units of Part 03; no translation for Part 03 was used or emitted.",
+    "Read the reviewed Part 02 tail and the first three drafted Part 03 units as one passage; the topic shift is explicit and coherent."
+  ]
+}

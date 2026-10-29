@@ -1,0 +1,41 @@
+{
+  "part_id": "part_03",
+  "rule_version": "1.0",
+  "source_unit_count": 165,
+  "translated_unit_count": 165,
+  "coverage_check": "PASS",
+  "code_integrity_check": "PASS",
+  "local_status": "LOCAL_QA_PASSED",
+  "boundary_status": "PASS",
+  "final_status": "FINALIZED",
+  "findings": [],
+  "boundary_review": {
+    "previous_part_id": "part_02",
+    "next_part_id": "part_04",
+    "referents_checked": [
+      "p03-u001 starts an explicit new subsection after Part 02's over-indexing advice; no unresolved pronoun crosses the boundary.",
+      "p03-u162 through p03-u165 close the partial-index argument and do not state a false chapter conclusion before Part 04's NULL section.",
+      "Boundary Part 03 -> Part 04 passes: Part 04 opens a new NULL-in-Oracle section without duplicating or depending on an unresolved Part 03 referent."
+    ],
+    "terminology_conflicts": [],
+    "continuity_issues": []
+  },
+  "glossary_change_proposals": [],
+  "unresolved_questions": [],
+  "verified_automated_checks": [
+    "JSON parsed with jq.",
+    "source_unit_ids exactly equal the ordered translation unit IDs: 165/165, with no missing, extra, or duplicate IDs.",
+    "Generated HTML contains exactly 165 data-unit-id values.",
+    "All 32 protected SQL/code/execution-plan/figure units have source-page, rectangle, crop-asset, and exact-once regression mappings.",
+    "Protected blocks are not rendered as HTML pre elements; Vietnamese prose remains selectable in pdftotext output.",
+    "qpdf --check passes for vi/parts/part_03.pdf and Unicode extraction round-trips through iconv without replacement characters."
+  ],
+  "verified_manual_checks": [
+    "Audited all 165 semantic units against the complete Part 03 English extraction, including headings, paragraphs, tips, cautions, notes, sidebar text, captions, footnotes, links, SQL, code, execution plans, terminal output, tables, and figures.",
+    "Checked modality, negation, conditions, causal chains, row-count estimates, cost-vs-runtime distinctions, access-vs-filter predicates, range-scan boundaries, leading-wildcard behavior, bitmap-index write limitations, and partial-index restrictions.",
+    "Verified SQL, code, identifiers, literals, operators, execution-plan operation names, numeric values, figure labels, and URLs are preserved by source crops or verbatim protected-unit payloads.",
+    "Read the Part 02 reviewed tail with the Part 03 opening draft; Boundary QA passed separately in vi/reviews/part_02/boundary_part_03.json.",
+    "Read the Part 03 reviewed tail against the Part 04 source-only opening; no Part 04 translation was emitted or used as Part 03 content.",
+    "Reviewed rendered pages containing every protected block and figure for clipping, overflow, source-crop completeness, table integrity, and selectable-prose separation."
+  ]
+}

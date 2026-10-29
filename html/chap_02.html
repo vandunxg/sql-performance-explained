@@ -1,0 +1,1158 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chương 2 — Where Clause — SQL Performance Explained (VI)</title>
+<script>
+(function(){try{var t=localStorage.getItem("spe-theme");if(t&&t!=="auto")document.documentElement.setAttribute("data-theme",t);
+var s=parseFloat(localStorage.getItem("spe-scale"));if(s)document.documentElement.style.setProperty("--font-scale",s);}catch(e){}})();
+</script>
+<link rel="stylesheet" href="assets/css/book.css">
+<script src="assets/js/book.js" defer></script>
+</head>
+<body>
+<div class="progress"></div>
+<header class="topbar">
+  <button id="toc-toggle" type="button" aria-label="Mục lục chương">☰</button>
+  <a class="brand" href="index.html">SQL Performance Explained</a>
+  <span class="crumb">/ Chương 2 — Where Clause</span>
+  <span class="spacer"></span>
+  <span class="group"><button id="font-minus" type="button" aria-label="Giảm cỡ chữ">A−</button><button id="font-plus" type="button" aria-label="Tăng cỡ chữ">A+</button></span>
+  <button id="theme-btn" type="button" aria-label="Đổi giao diện">◐</button>
+</header>
+<div class="layout">
+<nav class="sidebar-toc" aria-label="Mục lục chương"><h2>Trong chương này</h2><ol><li class="l1"><a href="#p01-u040">Chương 2: Where Clause</a></li><li class="l2"><a href="#p01-u042">Equality Operator</a></li><li class="l3"><a href="#p01-u044">Primary Key</a></li><li class="l3"><a href="#p02-u007">Concatenated Index</a></li><li class="l3"><a href="#p02-u036">Index Chậm, Phần II</a></li><li class="l2"><a href="#p02-u059">Functions</a></li><li class="l2"><a href="#p02-u061">Tìm Kiếm Không Phân Biệt Hoa Thường Bằng UPPER hoặc LOWER</a></li><li class="l3"><a href="#p02-u086">User-Defined Function</a></li><li class="l3"><a href="#p02-u092-4">Over-Indexing</a></li><li class="l2"><a href="#p03-u001">Parameterized Queries</a></li><li class="l2"><a href="#p03-u066">Searching for Ranges</a></li><li class="l3"><a href="#p03-u069">Greater, Less and BETWEEN</a></li><li class="l3"><a href="#p03-u100">Indexing LIKE Filters</a></li><li class="l3"><a href="#p03-u133">Index Merge</a></li><li class="l2"><a href="#p03-u149">Partial Indexes</a></li><li class="l2"><a href="#p04-u001">NULL trong Oracle Database</a></li><li class="l3"><a href="#p04-u010">Indexing NULL</a></li><li class="l3"><a href="#p04-u030">NOT NULL Constraints</a></li><li class="l3"><a href="#p04-u060">Emulating Partial Indexes</a></li><li class="l2"><a href="#p04-u074">Obfuscated Conditions</a></li><li class="l3"><a href="#p04-u076">Date Types</a></li><li class="l3"><a href="#p04-u119">Numeric Strings</a></li><li class="l3"><a href="#p04-u139">Combining Columns</a></li><li class="l3"><a href="#p04-u161">Smart Logic</a></li><li class="l3"><a href="#p05-u036">Math</a></li></ol></nav>
+<main class="book"><div class="prose">
+<header class="chapter-head" id="p01-u040"><p class="eyebrow">Chương 2</p><h1>Where Clause</h1></header>
+<div class="para" id="p01-u041"><p>Chương trước đã mô tả cấu trúc index và giải thích nguyên nhân index performance kém. Bước tiếp theo, chúng ta sẽ học cách nhận diện và tránh các vấn đề này trong SQL statement. Chúng ta bắt đầu bằng <code class="kw">where</code> clause.</p>
+<p>Where clause định nghĩa điều kiện tìm kiếm của một SQL statement, vì vậy nó thuộc phạm vi chức năng cốt lõi của index: tìm dữ liệu nhanh. Dù <code class="kw">where</code> clause có ảnh hưởng rất lớn đến performance, nó thường được viết cẩu thả khiến database phải scan một phần lớn index. Kết quả là <code class="kw">where</code> clause viết kém là thành phần đầu tiên của query chậm.</p>
+<p>Chương này giải thích các operator khác nhau ảnh hưởng việc sử dụng index thế nào và cách bảo đảm index dùng được cho nhiều query nhất có thể. Phần cuối trình bày các anti-pattern thường gặp và các lựa chọn thay thế có performance tốt hơn.</p></div>
+<h2 id="p01-u042">Equality Operator<a class="anchor" href="#p01-u042" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p01-u043"><p>Equality operator vừa là SQL operator đơn giản nhất vừa được dùng thường xuyên nhất. Các lỗi indexing ảnh hưởng performance vẫn rất phổ biến, và <code class="kw">where</code> clause kết hợp nhiều điều kiện đặc biệt dễ gặp lỗi.</p>
+<p>Phần này chỉ ra cách xác minh việc dùng index và giải thích cách concatenated index có thể tối ưu các điều kiện kết hợp. Để dễ hiểu, chúng ta sẽ phân tích một query chậm để thấy tác động trong thực tế của những nguyên nhân đã giải thích ở Chương 1.</p></div>
+<h3 id="p01-u044">Primary Key<a class="anchor" href="#p01-u044" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p01-u045"><p>Chúng ta bắt đầu với <code class="kw">where</code> clause đơn giản nhất nhưng phổ biến nhất: primary key lookup. Trong các ví dụ xuyên suốt chương này, chúng ta dùng table <code class="id">EMPLOYEES</code> được định nghĩa như sau:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE TABLE employees (
+   employee_id NUMBER           NOT NULL,
+   first_name    VARCHAR2(1000) NOT NULL,
+   last_name     VARCHAR2(1000) NOT NULL,
+   date_of_birth DATE           NOT NULL,
+   phone_number VARCHAR2(1000) NOT NULL,
+   CONSTRAINT employees_pk PRIMARY KEY (employee_id)
+);</code></pre></div>
+<div class="para" id="p01-u047"><p>Database tự động tạo index cho primary key. Điều đó có nghĩa có index trên column <code class="id">EMPLOYEE_ID</code>, dù không có <code class="kw">create index</code> statement.</p>
+<p>Query sau dùng primary key để lấy tên của một nhân viên:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name
+  FROM employees
+ WHERE employee_id = 123</code></pre></div>
+<div class="para" id="p01-u049"><p>Where clause không thể match nhiều row vì primary key constraint bảo đảm tính duy nhất của các value <code class="id">EMPLOYEE_ID</code>. Database không cần đi theo index leaf node — chỉ cần traverse index tree. Chúng ta có thể dùng execution plan để xác minh:</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id |Operation                   | Name         | Rows | Cost |
+---------------------------------------------------------------
+| 0 |SELECT STATEMENT            |              |    1 |    2 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES    |    1 |    2 |
+|*2 | INDEX UNIQUE SCAN          | EMPLOYEES_PK |    1 |    1 |
+---------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   2 - access("EMPLOYEE_ID"=123)</code></pre></div>
+<div class="para" id="p02-u002"><p>Execution plan của Oracle cho thấy <code class="id">INDEX UNIQUE SCAN</code> - operation chỉ traverse index tree. Operation này tận dụng đầy đủ logarithmic scalability của index để tìm entry rất nhanh, gần như không phụ thuộc vào kích thước table.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Execution plan (đôi khi gọi là explain plan hoặc query plan) cho biết các bước database thực hiện để chạy một SQL statement. Appendix A ở trang 165 giải thích cách lấy và đọc execution plan trong các database khác.</p></aside>
+<div class="para" id="p02-u004"><p>Sau khi access index, database phải thực hiện thêm một bước để lấy dữ liệu được query (<code class="id">FIRST_NAME</code>, <code class="id">LAST_NAME</code>) từ table storage: operation <code class="id">TABLE ACCESS</code> BY <code class="id">INDEX ROWID</code>. Operation này có thể trở thành bottleneck về performance, như đã giải thích trong “Slow Indexes, Part I”, nhưng không có rủi ro đó khi dùng <code class="id">INDEX UNIQUE SCAN</code>. Operation này không thể trả về quá một entry nên không thể kích hoạt quá một lần table access. Điều đó nghĩa là các yếu tố tạo nên một query chậm không xuất hiện với <code class="id">INDEX UNIQUE SCAN</code>.</p></div>
+<h4 id="p02-u005">Primary Key Không Có Unique Index<a class="anchor" href="#p02-u005" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p02-u006"><p>Primary key không nhất thiết phải cần unique index - bạn cũng có thể dùng non-unique index. Trong trường hợp đó, Oracle database không dùng <code class="id">INDEX UNIQUE SCAN</code> mà dùng operation <code class="id">INDEX RANGE SCAN</code>. Tuy vậy, constraint vẫn duy trì tính duy nhất của key, nên index lookup trả về nhiều nhất một entry.</p>
+<p>Một lý do dùng non-unique index cho primary key là deferrable constraint. Khác với regular constraint được validate trong khi execute statement, database hoãn việc validate deferrable constraint cho đến khi transaction được commit. Deferred constraint cần thiết để <code class="kw">insert</code> dữ liệu vào các table có circular dependency.</p></div>
+<h3 id="p02-u007">Concatenated Index<a class="anchor" href="#p02-u007" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p02-u008"><p>Dù database tự động tạo index cho primary key, vẫn có chỗ để tinh chỉnh thủ công nếu key gồm nhiều column. Trong trường hợp đó, database tạo index trên tất cả primary key column - gọi là concatenated index (còn gọi là multicolumn, composite hoặc combined index). Lưu ý rằng thứ tự column của concatenated index ảnh hưởng lớn đến khả năng sử dụng, nên phải được chọn cẩn thận.</p></div>
+<div class="para" id="p02-u009"><p>Để minh họa, giả sử có một vụ sáp nhập công ty. Nhân viên của công ty kia được thêm vào table <code class="id">EMPLOYEES</code> của chúng ta, khiến table lớn gấp mười lần. Chỉ có một vấn đề: <code class="id">EMPLOYEE_ID</code> không còn duy nhất trên cả hai công ty. Chúng ta cần extend primary key bằng một identifier bổ sung, chẳng hạn subsidiary ID. Vì vậy primary key mới có hai column: <code class="id">EMPLOYEE_ID</code> như trước và <code class="id">SUBSIDIARY_ID</code> để khôi phục tính duy nhất.</p></div>
+<div class="para" id="p02-u010"><p>Vì vậy, index cho primary key mới được định nghĩa như sau:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE UNIQUE INDEX employee_pk
+    ON employees (employee_id, subsidiary_id);</code></pre></div>
+<div class="para" id="p02-u012"><p>Query cho một nhân viên cụ thể phải xét đến toàn bộ primary key, tức là cũng phải dùng column <code class="id">SUBSIDIARY_ID</code>:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name
+  FROM employees
+ WHERE employee_id = 123
+   AND subsidiary_id = 30;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id |Operation                   | Name         | Rows | Cost |
+---------------------------------------------------------------
+| 0 |SELECT STATEMENT            |              |    1 |    2 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES    |    1 |    2 |
+|*2 | INDEX UNIQUE SCAN          | EMPLOYEES_PK |    1 |    1 |
+---------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   2 - access("EMPLOYEE_ID"=123 AND "SUBSIDIARY_ID"=30)</code></pre></div>
+<div class="para" id="p02-u015"><p>Bất cứ khi nào query dùng toàn bộ primary key, database có thể dùng <code class="id">INDEX UNIQUE SCAN</code>, bất kể index có bao nhiêu column. Nhưng điều gì xảy ra khi chỉ dùng một key column, chẳng hạn khi tìm tất cả nhân viên của một subsidiary?</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name
+  FROM employees
+ WHERE subsidiary_id = 20;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------
+| Id | Operation         | Name      | Rows | Cost |
+----------------------------------------------------
+| 0 | SELECT STATEMENT |             | 106 | 478 |
+|* 1 | TABLE ACCESS FULL| EMPLOYEES | 106 | 478 |
+----------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   1 - filter("SUBSIDIARY_ID"=20)</code></pre></div>
+<div class="para" id="p02-u018"><p>Execution plan cho thấy database không dùng index. Thay vào đó, nó thực hiện <code class="id">FULL TABLE SCAN</code>. Do đó, database đọc toàn bộ table và đánh giá từng row theo <code class="kw">where</code> clause. Execution time tăng theo kích thước table: nếu table tăng gấp mười lần, <code class="id">FULL TABLE SCAN</code> mất thời gian gấp mười lần. Nguy hiểm của operation này là nó thường đủ nhanh trong development environment nhỏ, nhưng lại gây vấn đề performance nghiêm trọng trong production.</p></div>
+<h4 id="p02-u019">Full Table Scan<a class="anchor" href="#p02-u019" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p02-u020"><p>Operation <code class="id">TABLE ACCESS FULL</code>, còn gọi là full table scan, vẫn có thể là operation hiệu quả nhất trong một số trường hợp, đặc biệt khi lấy một phần lớn table.</p>
+<p>Điều này một phần do overhead của chính index lookup, vốn không có với operation <code class="id">TABLE ACCESS FULL</code>. Chủ yếu là vì index lookup đọc từng block một, do database không biết block nào cần đọc tiếp theo cho đến khi block hiện tại đã được xử lý. <code class="id">FULL TABLE SCAN</code> dù sao cũng phải lấy toàn bộ table, nên database có thể đọc các chunk lớn hơn mỗi lần (multi block read). Dù database đọc nhiều dữ liệu hơn, nó có thể cần thực hiện ít read operation hơn.</p></div>
+<div class="para" id="p02-u021"><p>Database không dùng index vì không thể tùy ý dùng từng column riêng lẻ từ một concatenated index. Quan sát kỹ cấu trúc index sẽ làm rõ điều này.</p>
+<p>Concatenated index cũng chỉ là B-tree index như mọi index khác, lưu dữ liệu đã index trong một list được sắp xếp. Database xét từng column theo vị trí của nó trong định nghĩa index để sắp xếp các index entry. Column đầu tiên là sort criterion chính, còn column thứ hai chỉ quyết định thứ tự nếu hai entry có cùng value ở column đầu tiên, và cứ như vậy.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Quan trọng</span></p><p>Concatenated index là một index trải trên nhiều column.</p></aside>
+<div class="para" id="p02-u023"><p>Vì thế, thứ tự của index hai column giống thứ tự của danh bạ điện thoại: trước hết sắp theo họ, rồi theo tên. Điều đó nghĩa là index hai column không hỗ trợ tìm chỉ theo column thứ hai; việc đó giống như tìm danh bạ điện thoại theo tên.</p></div>
+<figure class="fig" id="fig-2-1"><figcaption>Hình 2.1. Concatenated Index</figcaption><div class="img-wrap"><img src="assets/img/p02-u024.png" alt="Hình 2.1. Concatenated Index" loading="lazy"></div></figure>
+<div class="para" id="p02-u025"><p>Đoạn trích index trong Hình 2.1 cho thấy các entry của subsidiary 20 không được lưu cạnh nhau. Cũng thấy rõ không có entry nào có <code class="id">SUBSIDIARY_ID</code> = 20 trong tree, dù chúng tồn tại ở leaf node. Do đó tree không hữu ích cho query này.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Hình dung index giúp hiểu index hỗ trợ những query nào. Bạn có thể query database để lấy các entry theo thứ tự index (cú pháp SQL:2008, xem trang 144 về các giải pháp proprietary dùng <code class="id">LIMIT</code>, <code class="id">TOP</code> hoặc <code class="id">ROWNUM</code>):</p></aside>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT &lt;INDEX COLUMN LIST&gt;
+  FROM &lt;TABLE&gt;
+ ORDER BY &lt;INDEX COLUMN LIST&gt;
+ FETCH FIRST 100 ROWS ONLY;</code></pre></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Nếu đưa định nghĩa index và tên table vào query, bạn sẽ nhận được một mẫu từ index. Hãy tự hỏi các row được yêu cầu có được nhóm ở một vị trí tập trung không. Nếu không, index tree không thể giúp tìm vị trí đó.</p></aside>
+<div class="para" id="p02-u029"><p>Dĩ nhiên, chúng ta có thể thêm một index khác trên <code class="id">SUBSIDIARY_ID</code> để cải thiện tốc độ query. Tuy nhiên có một giải pháp tốt hơn, ít nhất nếu giả sử việc tìm chỉ bằng <code class="id">EMPLOYEE_ID</code> không có ý nghĩa.</p>
+<p>Chúng ta có thể tận dụng thực tế rằng column index đầu tiên luôn dùng được để tìm kiếm. Một lần nữa, nó giống danh bạ điện thoại: bạn không cần biết tên để tìm theo họ. Mẹo là đảo thứ tự column index để <code class="id">SUBSIDIARY_ID</code> ở vị trí đầu tiên:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE UNIQUE INDEX EMPLOYEES_PK
+    ON EMPLOYEES (SUBSIDIARY_ID, EMPLOYEE_ID);</code></pre></div>
+<div class="para" id="p02-u031"><p>Hai column kết hợp vẫn là duy nhất, nên query với toàn bộ primary key vẫn có thể dùng <code class="id">INDEX UNIQUE SCAN</code>, nhưng chuỗi index entry đã hoàn toàn khác. <code class="id">SUBSIDIARY_ID</code> trở thành sort criterion chính. Điều đó nghĩa là mọi entry của một subsidiary nằm liên tiếp trong index, nên database có thể dùng B-tree để tìm vị trí của chúng.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Quan trọng</span></p><p>Điểm quan trọng nhất khi định nghĩa concatenated index là chọn thứ tự column sao cho index có thể được dùng thường xuyên nhất.</p>
+<p>Execution plan xác nhận database dùng index “đảo ngược”. Chỉ <code class="id">SUBSIDIARY_ID</code> không còn duy nhất, nên database phải đi theo các leaf node để tìm mọi entry match: vì vậy nó dùng operation <code class="id">INDEX RANGE SCAN</code>.</p></aside>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
+|Id |Operation                   | Name        | Rows | Cost |
+--------------------------------------------------------------
+| 0 |SELECT STATEMENT            |             | 106 |    75 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES | 106 |      75 |
+|*2 | INDEX RANGE SCAN           | EMPLOYEE_PK | 106 |     2 |
+--------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   2 - access("SUBSIDIARY_ID"=20)</code></pre></div>
+<div class="para" id="p02-u034"><p>Nói chung, database có thể dùng concatenated index khi tìm bằng các column dẫn đầu (bên trái nhất). Index có ba column có thể dùng khi tìm column đầu tiên, khi tìm hai column đầu tiên cùng nhau, và khi tìm bằng tất cả column.</p>
+<p>Dù giải pháp hai index cũng cho select performance rất tốt, giải pháp một index vẫn được ưu tiên. Nó không chỉ tiết kiệm storage space mà còn giảm maintenance overhead cho index thứ hai. Table càng ít index thì performance của <code class="kw">insert</code>, <code class="kw">delete</code> và <code class="kw">update</code> càng tốt.</p>
+<p>Để định nghĩa index tối ưu, bạn phải hiểu không chỉ cách index hoạt động mà còn phải biết application query dữ liệu thế nào. Điều đó nghĩa là phải biết các tổ hợp column xuất hiện trong <code class="kw">where</code> clause.</p>
+<p>Vì vậy, định nghĩa index tối ưu rất khó với external consultant vì họ không có cái nhìn tổng thể về access path của application. Consultant thường chỉ có thể xét một query. Họ không khai thác lợi ích bổ sung mà index có thể mang lại cho các query khác. Database administrator cũng ở vị trí tương tự vì họ có thể biết database schema nhưng không có insight sâu về access path.</p></div>
+<div class="para" id="p02-u035"><p>Nơi duy nhất kiến thức kỹ thuật về database gặp kiến thức chức năng về business domain là bộ phận development. Developer hiểu dữ liệu và biết access path. Họ có thể đánh index đúng để đem lại lợi ích tốt nhất cho toàn bộ application mà không cần nhiều công sức.</p></div>
+<h3 id="p02-u036">Index Chậm, Phần II<a class="anchor" href="#p02-u036" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p02-u037"><p>Phần trước đã giải thích cách thu được lợi ích bổ sung từ index hiện có bằng cách thay đổi thứ tự column, nhưng ví dụ chỉ xét hai SQL statement. Tuy nhiên, thay đổi index có thể ảnh hưởng đến mọi query trên table được index. Phần này giải thích cách database chọn index và minh họa các side effect có thể xảy ra khi thay đổi index hiện có.</p>
+<p>Index <code class="id">EMPLOYEE_PK</code> đã dùng cải thiện performance của mọi query chỉ tìm theo subsidiary. Tuy vậy, nó có thể dùng cho mọi query tìm theo <code class="id">SUBSIDIARY_ID</code>, bất kể có thêm search criteria nào không. Điều đó nghĩa là index trở nên dùng được cho các query vốn dùng index khác với một phần khác của <code class="kw">where</code> clause. Trong trường hợp đó, nếu có nhiều access path khả dụng, optimizer có nhiệm vụ chọn access path tốt nhất.</p></div>
+<aside class="callout sidebar "><p class="title"><span>Query Optimizer</span></p><p>Query optimizer, hay query planner, là component của database biến SQL statement thành execution plan. Quá trình này cũng gọi là compiling hoặc parsing. Có hai loại optimizer riêng biệt.</p>
+<p>Cost-based optimizer (<code class="id">CBO</code>) tạo nhiều biến thể execution plan và tính một cost value cho từng plan. Việc tính cost dựa trên các operation đang dùng và số row được estimate. Cuối cùng, cost value làm chuẩn để chọn execution plan “tốt nhất”.</p>
+<p>Rule-based optimizer (<code class="id">RBO</code>) tạo execution plan bằng một tập rule hard-coded. Rule-based optimizer ít linh hoạt hơn và ngày nay hiếm khi được dùng.</p></aside>
+<div class="para" id="p02-u039"><p>Thay đổi index cũng có thể có side effect khó chịu. Trong ví dụ của chúng ta, application danh bạ điện thoại nội bộ đã chậm đi rất nhiều từ sau vụ sáp nhập. Phân tích đầu tiên xác định query sau là nguyên nhân làm chậm:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, subsidiary_id, phone_number
+  FROM employees
+ WHERE last_name = 'WINAND'
+   AND subsidiary_id = 30;</code></pre></div>
+<p class="figcap">Execution plan là:
+Ví dụ 2.1. Execution Plan với Primary Key Index Đã Sửa Đổi</p>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id |Operation                   | Name         | Rows | Cost |
+---------------------------------------------------------------
+| 0 |SELECT STATEMENT            |              |    1 | 30 |
+|*1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES    |    1 |   30 |
+|*2 | INDEX RANGE SCAN           | EMPLOYEES_PK | 40 |      2 |
+---------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+  1 - filter("LAST_NAME"='WINAND')
+  2 - access("SUBSIDIARY_ID"=30)</code></pre></div>
+<div class="para" id="p02-u043"><p>Execution plan dùng một index và có tổng cost value là 30. Đến đây mọi thứ đều ổn. Tuy nhiên, đáng nghi là nó dùng index chúng ta vừa thay đổi; đó là lý do đủ để nghi ngờ thay đổi index gây ra vấn đề performance, nhất là khi nhớ định nghĩa index cũ bắt đầu bằng column <code class="id">EMPLOYEE_ID</code>, vốn hoàn toàn không nằm trong <code class="kw">where</code> clause. Trước đây query không thể dùng index đó.</p>
+<p>Để phân tích thêm, sẽ hữu ích nếu so sánh execution plan trước và sau thay đổi. Để lấy execution plan gốc, chúng ta có thể triển khai lại định nghĩa index cũ, nhưng đa số database có cách đơn giản hơn để ngăn dùng một index cho query cụ thể. Ví dụ sau dùng Oracle optimizer hint cho mục đích đó.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT /*+ NO_INDEX(EMPLOYEES EMPLOYEE_PK) */
+       first_name, last_name, subsidiary_id, phone_number
+  FROM employees
+ WHERE last_name = 'WINAND'
+   AND subsidiary_id = 30;</code></pre></div>
+<div class="para" id="p02-u045"><p>Execution plan được cho là đã dùng trước thay đổi index hoàn toàn không dùng index:</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------
+| Id | Operation         | Name      | Rows | Cost |
+----------------------------------------------------
+| 0 | SELECT STATEMENT |             |    1 | 477 |
+|* 1 | TABLE ACCESS FULL| EMPLOYEES |     1 | 477 |
+----------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   1 - filter("LAST_NAME"='WINAND' AND "SUBSIDIARY_ID"=30)</code></pre></div>
+<div class="para" id="p02-u047"><p>Dù <code class="id">TABLE ACCESS FULL</code> phải đọc và xử lý toàn bộ table, trong trường hợp này nó có vẻ nhanh hơn dùng index. Điều đó đặc biệt lạ vì query chỉ match một row. Dùng index để tìm một row lẽ ra phải nhanh hơn nhiều so với full table scan, nhưng trong trường hợp này thì không. Index có vẻ chậm.</p>
+<p>Trong những trường hợp như vậy, tốt nhất là lần lượt xem từng bước của execution plan có vấn đề. Bước đầu là <code class="id">INDEX RANGE SCAN</code> trên index <code class="id">EMPLOYEES_PK</code>. Index đó không cover column <code class="id">LAST_NAME</code>; <code class="id">INDEX RANGE SCAN</code> chỉ có thể xét filter <code class="id">SUBSIDIARY_ID</code>. Oracle database cho thấy điều này trong khu vực “Predicate Information”, entry “2” của execution plan. Tại đó có thể thấy các điều kiện được áp dụng cho từng operation.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Appendix A, “Execution Plans”, giải thích cách tìm “Predicate Information” cho các database khác.</p></aside>
+<div class="para" id="p02-u049"><p><code class="id">INDEX RANGE SCAN</code> có operation ID 2 (Ví dụ 2.1 ở trang 19) chỉ áp dụng filter <code class="id">SUBSIDIARY_ID</code>=30. Điều đó nghĩa là nó traverse index tree để tìm entry đầu tiên có <code class="id">SUBSIDIARY_ID</code> 30. Sau đó nó đi theo leaf node chain để tìm mọi entry khác của subsidiary đó. Kết quả của <code class="id">INDEX RANGE SCAN</code> là list <code class="id">ROWID</code> thỏa điều kiện <code class="id">SUBSIDIARY_ID</code>: tùy quy mô subsidiary, có thể chỉ có vài <code class="id">ROWID</code> hoặc có thể có hàng trăm.</p>
+<p>Bước tiếp theo là operation <code class="id">TABLE ACCESS</code> BY <code class="id">INDEX ROWID</code>. Nó dùng <code class="id">ROWID</code> từ bước trước để lấy các row, tức mọi column, từ table. Khi column <code class="id">LAST_NAME</code> đã có, database mới có thể đánh giá phần còn lại của <code class="kw">where</code> clause. Điều đó nghĩa là database phải lấy mọi row có <code class="id">SUBSIDIARY_ID</code>=30 trước khi có thể áp dụng filter <code class="id">LAST_NAME</code>.</p></div>
+<div class="para" id="p02-u050"><p>Response time của statement không phụ thuộc vào kích thước result set mà phụ thuộc vào số nhân viên trong subsidiary cụ thể. Nếu subsidiary chỉ có vài thành viên, <code class="id">INDEX RANGE SCAN</code> có performance tốt hơn. Tuy vậy, <code class="id">TABLE ACCESS FULL</code> có thể nhanh hơn với subsidiary rất lớn vì nó có thể đọc phần lớn table trong một lần (xem “Full Table Scan” ở trang 13).</p>
+<p>Query chậm vì index lookup trả về nhiều <code class="id">ROWID</code>, một cho mỗi nhân viên của công ty ban đầu, và database phải lấy chúng riêng lẻ. Đây là sự kết hợp hoàn hảo của hai yếu tố làm index chậm: database đọc một index range rộng và phải lấy nhiều row riêng lẻ.</p>
+<p>Việc chọn execution plan tốt nhất cũng phụ thuộc vào data distribution của table, nên optimizer dùng statistics về nội dung database. Trong ví dụ này, một histogram chứa distribution nhân viên theo subsidiary được dùng. Điều này cho phép optimizer estimate số row trả về từ index lookup; kết quả được dùng để tính cost.</p></div>
+<aside class="callout sidebar "><p class="title"><span>Statistics</span></p><p>Cost-based optimizer dùng statistics về table, column và index. Phần lớn statistics được thu thập ở cấp column: số lượng value riêng biệt, value nhỏ nhất và lớn nhất (data range), số lần xuất hiện <code class="id">NULL</code> và column histogram (data distribution). Value statistics quan trọng nhất của table là kích thước của nó (theo row và block).</p>
+<p>Statistics index quan trọng nhất là tree depth, số leaf node, số distinct key và clustering factor (xem Chương 5, “Clustering Data”).</p>
+<p>Optimizer dùng các value này để estimate selectivity của các predicate trong <code class="kw">where</code> clause.</p></aside>
+<div class="para" id="p02-u052"><p>Nếu không có statistics, chẳng hạn vì chúng đã bị xóa, optimizer dùng các value mặc định. Statistics mặc định của Oracle database cho thấy index nhỏ với selectivity trung bình. Chúng dẫn đến estimate rằng <code class="id">INDEX RANGE SCAN</code> sẽ trả về 40 row. Execution plan hiển thị estimate này trong column Rows (một lần nữa, xem Ví dụ 2.1 ở trang 19). Rõ ràng đây là estimate thấp hơn rất nhiều, vì có 1000 nhân viên làm việc cho subsidiary này.</p>
+<p>Nếu cung cấp statistics chính xác, optimizer làm việc tốt hơn. Execution plan sau cho thấy estimate mới: 1000 row cho <code class="id">INDEX RANGE SCAN</code>. Vì thế optimizer tính cost value cao hơn cho table access tiếp theo.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id |Operation                   | Name         | Rows | Cost |
+---------------------------------------------------------------
+| 0 |SELECT STATEMENT            |              |    1 | 680 |
+|*1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES    |    1 | 680 |
+|*2 | INDEX RANGE SCAN           | EMPLOYEES_PK | 1000 |    4 |
+---------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+  1 - filter("LAST_NAME"='WINAND')
+  2 - access("SUBSIDIARY_ID"=30)</code></pre></div>
+<div class="para" id="p02-u054"><p>Cost value 680 thậm chí cao hơn cost value của execution plan dùng <code class="id">FULL TABLE SCAN</code> (477, xem trang 20). Vì vậy optimizer sẽ tự động ưu tiên <code class="id">FULL TABLE SCAN</code>.</p>
+<p>Ví dụ về index chậm này không nên che khuất thực tế rằng indexing đúng là giải pháp tốt nhất. Dĩ nhiên, tìm theo last name được hỗ trợ tốt nhất bằng index trên <code class="id">LAST_NAME</code>:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX emp_name ON employees (last_name);</code></pre></div>
+<div class="para" id="p02-u056"><p>Với index mới, optimizer tính cost value là 3:</p>
+<p>Ví dụ 2.2. Execution Plan với Index Chuyên Dụng</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
+| Id | Operation                   | Name      | Rows | Cost |
+--------------------------------------------------------------
+| 0 | SELECT STATEMENT             |           |    1 |    3 |
+|* 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES |     1 |    3 |
+|* 2 |   INDEX RANGE SCAN          | EMP_NAME |     1 |    1 |
+--------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   1 - filter("SUBSIDIARY_ID"=30)
+   2 - access("LAST_NAME"='WINAND')</code></pre></div>
+<div class="para" id="p02-u058"><p>Theo estimate của optimizer, index access chỉ trả về một row. Vì thế database chỉ phải lấy row đó từ table: điều này chắc chắn nhanh hơn <code class="id">FULL TABLE SCAN</code>. Index được định nghĩa đúng vẫn tốt hơn full table scan ban đầu.</p>
+<p>Hai execution plan trong Ví dụ 2.1 (trang 19) và Ví dụ 2.2 gần như giống hệt nhau. Database thực hiện cùng operation và optimizer tính các cost value tương tự, nhưng plan thứ hai hoạt động tốt hơn nhiều. Hiệu quả của <code class="id">INDEX RANGE SCAN</code> có thể biến thiên trong một phạm vi rộng, đặc biệt khi sau đó là table access. Dùng index không tự động nghĩa là statement được execute theo cách tốt nhất có thể.</p></div>
+<h2 id="p02-u059">Functions<a class="anchor" href="#p02-u059" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p02-u060-0"><p>Index trên <code class="id">LAST_NAME</code> đã cải thiện performance đáng kể, nhưng nó yêu cầu bạn tìm kiếm bằng đúng chữ hoa/chữ thường như được lưu trong database. Phần này giải thích cách bỏ hạn chế này mà không làm giảm performance.</p></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Lưu ý</span></p><p>MySQL 5.6 không hỗ trợ function-based indexing như mô tả bên dưới. Thay vào đó, virtual column từng được lên kế hoạch cho MySQL 6.0 nhưng chỉ được giới thiệu trong MariaDB 5.2.</p></aside>
+<h2 id="p02-u061">Tìm Kiếm Không Phân Biệt Hoa Thường Bằng <code class="id">UPPER</code> hoặc <code class="id">LOWER</code><a class="anchor" href="#p02-u061" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p02-u062"><p>Bỏ qua chữ hoa/chữ thường trong <code class="kw">where</code> clause rất đơn giản. Chẳng hạn, bạn có thể chuyển cả hai vế so sánh thành ký hiệu toàn chữ hoa:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, phone_number
+  FROM employees
+ WHERE UPPER(last_name) = UPPER('winand');</code></pre></div>
+<div class="para" id="p02-u064-0"><p>Dù search term hoặc column <code class="id">LAST_NAME</code> dùng kiểu viết hoa nào, function <code class="id">UPPER</code> vẫn làm chúng match như mong muốn.</p></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Lưu ý</span></p><p>Một cách khác để match không phân biệt hoa thường là dùng “collation” khác. Collation mặc định của SQL Server và MySQL không phân biệt chữ hoa và chữ thường, chúng mặc định case-insensitive.</p></aside>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------
+| Id | Operation         | Name      | Rows | Cost |
+----------------------------------------------------
+| 0 | SELECT STATEMENT |             | 10 | 477 |
+|* 1 | TABLE ACCESS FULL| EMPLOYEES | 10 | 477 |
+----------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   1 - filter(UPPER("LAST_NAME")='WINAND')</code></pre></div>
+<div class="para" id="p02-u066"><p>Logic của query này hoàn toàn hợp lý nhưng execution plan thì không.</p>
+<p>Chúng ta lại gặp người bạn cũ full table scan. Dù có index trên <code class="id">LAST_NAME</code>, index đó không dùng được vì việc tìm kiếm không diễn ra trên <code class="id">LAST_NAME</code> mà trên <code class="id">UPPER</code>(<code class="id">LAST_NAME</code>). Theo góc nhìn của database, đây là hai thứ hoàn toàn khác nhau.</p>
+<p>Đây là cái bẫy mà tất cả chúng ta có thể gặp phải. Chúng ta nhận ra ngay quan hệ giữa <code class="id">LAST_NAME</code> và <code class="id">UPPER</code>(<code class="id">LAST_NAME</code>) và mong database cũng “thấy” như vậy. Trên thực tế, góc nhìn của optimizer giống thế này hơn:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, phone_number
+  FROM employees
+ WHERE BLACKBOX(...) = 'WINAND';</code></pre></div>
+<div class="para" id="p02-u068"><p>Function <code class="id">UPPER</code> chỉ là một black box. Các parameter của function không liên quan vì không có quan hệ tổng quát nào giữa parameter của function và kết quả.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Hãy thay tên function bằng <code class="id">BLACKBOX</code> để hiểu góc nhìn của optimizer.</p></aside>
+<aside class="callout sidebar "><p class="title"><span>Đánh Giá Khi Compile</span></p><p>Optimizer có thể đánh giá expression ở vế phải trong “compile time” vì nó có tất cả input parameter. Vì vậy execution plan của Oracle (phần “Predicate Information”) chỉ hiển thị ký hiệu chữ hoa của search term. Hành vi này rất giống compiler đánh giá constant expression trong compile time.</p></aside>
+<div class="para" id="p02-u071"><p>Để hỗ trợ query đó, chúng ta cần một index cover search term thực tế. Điều đó nghĩa là không cần index trên <code class="id">LAST_NAME</code> mà trên <code class="id">UPPER</code>(<code class="id">LAST_NAME</code>):</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX emp_up_name
+    ON employees (UPPER(last_name));</code></pre></div>
+<div class="para" id="p02-u073"><p>Index có định nghĩa chứa function hoặc expression được gọi là function-based index (<code class="id">FBI</code>). Thay vì sao chép trực tiếp dữ liệu column vào index, function-based index áp dụng function trước rồi đưa kết quả vào index. Do đó index lưu tên ở dạng toàn chữ hoa.</p>
+<p>Database có thể dùng function-based index nếu expression chính xác của định nghĩa index xuất hiện trong SQL statement, như ví dụ trên. Execution plan xác nhận điều này:</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
+|Id |Operation                   | Name        | Rows | Cost |
+--------------------------------------------------------------
+| 0 |SELECT STATEMENT            |             | 100 |    41 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES | 100 |      41 |
+|*2 | INDEX RANGE SCAN           | EMP_UP_NAME | 40 |      1 |
+--------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+  2 - access(UPPER("LAST_NAME")='WINAND')</code></pre></div>
+<div class="para" id="p02-u075-0"><p>Đây là <code class="id">INDEX RANGE SCAN</code> thông thường như đã mô tả ở Chương 1. Database traverse B-tree và đi theo leaf node chain. Không có operation hoặc keyword riêng cho function-based index.</p></div>
+<aside class="callout warning "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Cảnh báo</span></p><p>Đôi khi <code class="id">ORM</code> tool dùng <code class="id">UPPER</code> và <code class="id">LOWER</code> mà developer không biết. Ví dụ, Hibernate <code class="kw">insert</code> <code class="id">LOWER</code> ngầm cho các tìm kiếm không phân biệt hoa thường.</p></aside>
+<div class="para" id="p02-u076"><p>Execution plan vẫn chưa giống execution plan ở phần trước không dùng <code class="id">UPPER</code>; estimate số row quá cao. Đặc biệt lạ là optimizer dự kiến lấy nhiều row từ table hơn số row mà <code class="id">INDEX RANGE SCAN</code> trả về ngay từ đầu. Làm sao nó có thể lấy 100 row từ table nếu index scan trước đó chỉ trả về 40 row? Câu trả lời là không thể. Những estimate mâu thuẫn như vậy thường chỉ ra vấn đề với statistics. Trong trường hợp này, nguyên nhân là Oracle database không <code class="kw">update</code> table statistics khi tạo index mới (xem thêm “Oracle Statistics for Function-Based Indexes” ở trang 28).</p></div>
+<div class="para" id="p02-u077"><p>Sau khi <code class="kw">update</code> statistics, optimizer tính các estimate chính xác hơn:</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
+|Id |Operation                   | Name        | Rows | Cost |
+--------------------------------------------------------------
+| 0 |SELECT STATEMENT            |             |    1 |    3 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES |      1 |    3 |
+|*2 | INDEX RANGE SCAN           | EMP_UP_NAME |    1 |    1 |
+--------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+  2 - access(UPPER("LAST_NAME")='WINAND')</code></pre></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Lưu ý</span></p><p>“Extended statistics” trên expression và column group được giới thiệu trong Oracle release 11g.</p>
+<p>Dù statistics đã <code class="kw">update</code> không cải thiện execution performance trong trường hợp này, vì index vẫn đã được dùng đúng, việc kiểm tra estimate của optimizer luôn là ý hay. Số row được xử lý cho mỗi operation (cardinality estimate) là con số đặc biệt quan trọng, cũng được hiển thị trong execution plan của SQL Server và PostgreSQL.</p></aside>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Appendix A, “Execution Plans”, mô tả row count estimate trong execution plan của SQL Server và PostgreSQL.</p>
+<p>SQL Server không hỗ trợ function-based index như mô tả, nhưng cung cấp computed column có thể dùng thay thế. Để sử dụng, trước tiên phải thêm computed column vào table rồi mới có thể index nó:</p></aside>
+<div class="code sql"><span class="label">SQL</span><pre><code>ALTER TABLE employees ADD last_name_up AS UPPER(last_name);
+CREATE INDEX emp_up_name ON employees (last_name_up);</code></pre></div>
+<div class="para" id="p02-u082"><p>SQL Server có thể dùng index này bất cứ khi nào expression đã index xuất hiện trong statement. Bạn không cần viết lại query để dùng computed column.</p></div>
+<aside class="callout sidebar "><p class="title"><span>Oracle Statistics cho Function-Based Index</span></p><p>Oracle database duy trì thông tin về số distinct column value như một phần của table statistics. Các con số này được dùng lại nếu column là một phần của nhiều index.</p>
+<p>Statistics cho function-based index (<code class="id">FBI</code>) cũng được lưu ở cấp table dưới dạng virtual column. Dù Oracle database tự động thu thập index statistics cho index mới (từ release 10g), nó không <code class="kw">update</code> table statistics. Vì vậy, tài liệu Oracle khuyến nghị <code class="kw">update</code> table statistics sau khi tạo function-based index:</p></aside>
+<blockquote><p>Sau khi tạo function-based index, hãy thu thập statistics</p>
+<p>trên cả index và base table bằng package <code class="id">DBMS_STATS</code>.</p>
+<p>Statistics như vậy sẽ giúp Oracle Database</p>
+<p>quyết định chính xác khi nào nên dùng index.</p>
+<p>- Oracle Database SQL Language Reference</p></blockquote>
+<div class="para" id="p02-u085"><p>Khuyến nghị cá nhân của tôi còn đi xa hơn: sau mỗi thay đổi index, hãy <code class="kw">update</code> statistics cho base table và mọi index của nó. Tuy vậy, điều đó cũng có thể dẫn đến side effect không mong muốn. Hãy phối hợp việc này với database administrator (DBA) và backup statistics gốc.</p></div>
+<h3 id="p02-u086">User-Defined Function<a class="anchor" href="#p02-u086" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p02-u087"><p>Function-based indexing là cách tiếp cận rất tổng quát. Ngoài function như <code class="id">UPPER</code>, bạn còn có thể index expression như A + B và thậm chí dùng user-defined function trong định nghĩa index.</p>
+<p>Có một ngoại lệ quan trọng. Chẳng hạn, không thể reference current time trong định nghĩa index, trực tiếp hay gián tiếp, như ví dụ sau.</p></div>
+<div class="code "><pre><code>CREATE FUNCTION get_age(date_of_birth DATE)
+RETURN NUMBER
+AS
+BEGIN
+   RETURN
+     TRUNC(MONTHS_BETWEEN(SYSDATE, date_of_birth)/12);
+END;
+/</code></pre></div>
+<div class="para" id="p02-u089"><p>Function <code class="id">GET_AGE</code> dùng ngày hiện tại (<code class="id">SYSDATE</code>) để tính tuổi dựa trên ngày sinh được cung cấp. Bạn có thể dùng function này ở mọi phần của SQL query, ví dụ trong select và <code class="kw">where</code> clause:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, get_age(date_of_birth)
+  FROM employees
+ WHERE get_age(date_of_birth) = 42;</code></pre></div>
+<div class="para" id="p02-u091"><p>Query liệt kê mọi nhân viên 42 tuổi. Dùng function-based index là ý tưởng hiển nhiên để tối ưu query này, nhưng bạn không thể dùng function <code class="id">GET_AGE</code> trong định nghĩa index vì nó không deterministic. Điều đó nghĩa là kết quả của function call không hoàn toàn được quyết định bởi parameter của nó. Chỉ function luôn trả về cùng kết quả cho cùng parameter, tức function deterministic, mới có thể được index.</p>
+<p>Lý do cho hạn chế này đơn giản. Khi <code class="kw">insert</code> row mới, database gọi function và lưu kết quả trong index, rồi kết quả đó nằm yên, không đổi. Không có process định kỳ nào <code class="kw">update</code> index. Database chỉ <code class="kw">update</code> tuổi đã index khi ngày sinh bị thay đổi bằng <code class="kw">update</code> statement. Sau sinh nhật tiếp theo, tuổi được lưu trong index sẽ sai.</p></div>
+<div class="para" id="p02-u092-0"><p>Ngoài việc phải deterministic, PostgreSQL và Oracle database yêu cầu function được khai báo deterministic khi dùng trong index, nên bạn phải dùng keyword <code class="id">DETERMINISTIC</code> (Oracle) hoặc <code class="id">IMMUTABLE</code> (PostgreSQL).</p></div>
+<aside class="callout caution "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Cẩn trọng</span></p><p>PostgreSQL và Oracle database tin vào khai báo <code class="id">DETERMINISTIC</code> hoặc <code class="id">IMMUTABLE</code>, nghĩa là chúng tin developer. Bạn có thể khai báo function <code class="id">GET_AGE</code> là deterministic và dùng nó trong định nghĩa index. Bất kể khai báo đó, nó sẽ không hoạt động như dự định vì tuổi lưu trong index sẽ không tăng theo năm tháng; nhân viên sẽ không già đi, ít nhất là trong index.</p></aside>
+<div class="para" id="p02-u092-2"><p>Các ví dụ khác về function không thể được “index” là random number generator và function phụ thuộc environment variable.</p></div>
+<aside class="callout think_about_it "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Hãy suy nghĩ</span></p><p>Làm sao vẫn có thể dùng index để tối ưu query cho tất cả nhân viên 42 tuổi?</p></aside>
+<h3 id="p02-u092-4">Over-Indexing<a class="anchor" href="#p02-u092-4" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p02-u092-5"><p>Nếu khái niệm function-based indexing còn mới, bạn có thể bị cám dỗ index mọi thứ, nhưng thực tế đây là điều cuối cùng bạn nên làm. Lý do là mọi index đều tạo ra maintenance liên tục. Function-based index đặc biệt rắc rối vì chúng khiến việc tạo index dư thừa rất dễ dàng.</p></div>
+<div class="para" id="p02-u092-6"><p>Tìm kiếm không phân biệt hoa thường ở trên cũng có thể triển khai bằng function <code class="id">LOWER</code>:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, phone_number
+  FROM employees
+ WHERE LOWER(last_name) = LOWER('winand');</code></pre></div>
+<div class="para" id="p02-u092-8"><p>Một index không thể hỗ trợ cả hai cách bỏ qua chữ hoa thường. Dĩ nhiên, chúng ta có thể tạo index thứ hai trên <code class="id">LOWER</code>(last_name) cho query này, nhưng điều đó nghĩa là database phải duy trì hai index cho mỗi statement <code class="kw">insert</code>, <code class="kw">update</code> và <code class="kw">delete</code> (xem thêm Chương 8, “Modifying Data”). Để một index là đủ, bạn nên dùng nhất quán cùng một function trong toàn application.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Hợp nhất access path để một index có thể được dùng bởi nhiều query.</p></aside>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Luôn hướng đến việc index dữ liệu gốc vì đó thường là thông tin hữu ích nhất có thể đưa vào index.</p></aside>
+<h2 id="p03-u001">Parameterized Queries<a class="anchor" href="#p03-u001" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p03-u002"><p>Phần này đề cập đến một chủ đề bị bỏ qua trong phần lớn textbook về SQL: parameterized query và bind parameter.</p></div>
+<div class="para" id="p03-u003"><p>Bind parameter, còn gọi là dynamic parameter hoặc bind variable, là một cách khác để truyền dữ liệu vào database. Thay vì đặt value trực tiếp vào SQL statement, bạn chỉ cần dùng một placeholder như ?, :name hoặc @name rồi cung cấp value thực qua một API call riêng.</p></div>
+<div class="para" id="p03-u004"><p>Không có gì sai khi viết value trực tiếp vào các ad-hoc statement; tuy nhiên, có hai lý do chính đáng để dùng bind parameter trong program:</p></div>
+<h4 id="p03-u005">Security<a class="anchor" href="#p03-u005" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p03-u006"><p>Bind variable là cách tốt nhất để ngăn SQL injection.¹</p></div>
+<div class="footnotes"><p>¹ <a href="http://en.wikipedia.org/wiki/SQL_injection">http://en.wikipedia.org/wiki/SQL_injection</a></p></div>
+<h4 id="p03-u008">Performance<a class="anchor" href="#p03-u008" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p03-u009"><p>Database có execution plan cache như SQL Server và Oracle database có thể tái sử dụng execution plan khi execute cùng một statement nhiều lần. Cách này tiết kiệm công sức xây dựng lại execution plan, nhưng chỉ hoạt động khi SQL statement hoàn toàn giống nhau. Nếu đặt các value khác nhau vào SQL statement, database sẽ xử lý nó như một statement khác và tạo lại execution plan.</p></div>
+<div class="para" id="p03-u010"><p>Khi dùng bind parameter, bạn không viết value thực mà thay vào đó <code class="kw">insert</code> placeholder vào SQL statement. Nhờ vậy, statement không thay đổi khi được execute với các value khác nhau.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>99 rows selected.
+SELECT first_name, last_name
+  FROM employees
+ WHERE subsidiary_id = 20;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id | Operation                   | Name        | Rows | Cost |
+---------------------------------------------------------------
+| 0 | SELECT STATEMENT            |             |   99 |   70 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES | 99 |        70 |
+|*2 | INDEX RANGE SCAN            | EMPLOYEE_PK |   99 |    2 |
+---------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+    2 - access("SUBSIDIARY_ID"=20)</code></pre></div>
+<div class="para" id="p03-u013"><p>Index lookup cho performance tốt nhất với các subsidiary nhỏ, nhưng <code class="id">TABLE ACCESS FULL</code> có thể nhanh hơn index với các subsidiary lớn:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>1000 rows selected.
+
+SELECT first_name, last_name
+  FROM employees
+ WHERE subsidiary_id = 30;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------
+| Id | Operation         | Name      | Rows | Cost |
+----------------------------------------------------
+| 0 | SELECT STATEMENT |             | 1000 | 478 |
+|* 1 | TABLE ACCESS FULL| EMPLOYEES | 1000 | 478 |
+----------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+    1 - filter("SUBSIDIARY_ID"=30)</code></pre></div>
+<div class="para" id="p03-u016"><p>Trong trường hợp này, histogram trên <code class="id">SUBSIDIARY_ID</code> phát huy đúng mục đích. Optimizer dùng nó để xác định frequency của subsidiary ID được nhắc đến trong SQL query. Vì vậy, nó nhận được hai row count estimate khác nhau cho hai query.</p></div>
+<div class="para" id="p03-u017"><p>Do đó, bước tính cost tiếp theo sẽ cho ra hai cost value khác nhau. Khi optimizer cuối cùng chọn execution plan, nó chọn plan có cost value thấp nhất. Với subsidiary nhỏ hơn, đó là plan dùng index.</p></div>
+<div class="para" id="p03-u018"><p>Cost của operation <code class="id">TABLE ACCESS</code> BY <code class="id">INDEX ROWID</code> rất nhạy với row count estimate. Chọn số row nhiều gấp mười lần sẽ làm cost value tăng theo hệ số đó. Khi ấy overall cost dùng index còn cao hơn full table scan. Vì vậy, optimizer sẽ chọn execution plan còn lại cho subsidiary lớn hơn.</p></div>
+<div class="para" id="p03-u019"><p>Khi dùng bind parameter, optimizer không có value cụ thể để xác định frequency của chúng. Nó chỉ giả định distribution đồng đều và luôn nhận được cùng row count estimate và cost value. Cuối cùng, nó sẽ luôn chọn cùng một execution plan.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Column histogram hữu ích nhất khi các value không được distribute đồng đều.</p>
+<p>Với column có distribution đồng đều, thường chỉ cần chia số value distinct cho số row trong table. Phương pháp này cũng hoạt động khi dùng bind parameter.</p></aside>
+<div class="para" id="p03-u021"><p>Nếu so optimizer với compiler, bind variable giống như program variable, còn khi viết value trực tiếp vào statement thì chúng giống constant hơn. Database có thể dùng các value từ SQL statement trong lúc optimization, cũng như compiler có thể evaluate constant expression trong lúc compilation. Nói ngắn gọn, bind parameter không visible với optimizer, giống như runtime value của variable không được compiler biết đến.</p></div>
+<div class="para" id="p03-u022"><p>Từ góc nhìn này, có một nghịch lý nhỏ: bind parameter có thể cải thiện performance nếu không dùng bind parameter cho phép optimizer luôn chọn execution plan tốt nhất. Nhưng cái giá là gì? Việc generate và evaluate mọi execution plan variant là một effort rất lớn, không đáng nếu cuối cùng bạn vẫn nhận cùng một kết quả.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Không dùng bind parameter cũng giống như compile lại một program mỗi lần.</p></aside>
+<div class="para" id="p03-u024"><p>Quyết định xây dựng specialized execution plan hay generic execution plan đặt database trước một dilemma. Hoặc database bỏ effort để evaluate mọi plan variant có thể có ở mỗi lần execution nhằm luôn có execution plan tốt nhất, hoặc tiết kiệm optimization overhead và dùng cached execution plan bất cứ khi nào có thể, chấp nhận rủi ro dùng execution plan suboptimal. Vấn đề là database không biết full optimization cycle có tạo ra một execution plan khác hay không nếu chưa thực sự thực hiện full optimization. Database vendor cố giải quyết dilemma này bằng các heuristic method, nhưng thành công rất hạn chế.</p></div>
+<div class="para" id="p03-u025"><p>Ở vai trò developer, bạn có thể chủ động dùng bind parameter để giúp giải quyết dilemma này. Cụ thể, bạn nên luôn dùng bind parameter, ngoại trừ những value cần ảnh hưởng đến execution plan.</p></div>
+<div class="para" id="p03-u026"><p>Status code distribution không đồng đều như “todo” và “done” là một ví dụ tốt. Số entry “done” thường nhiều hơn record “todo” cả một order of magnitude. Trong trường hợp đó, dùng index chỉ có ý nghĩa khi tìm entry “todo”. Partitioning là một ví dụ khác, tức là chia table và index trên nhiều storage area. Khi đó, value thực có thể ảnh hưởng đến partition nào phải được scan. Performance của <code class="id">LIKE</code> query cũng có thể bị ảnh hưởng bởi bind parameter, như chúng ta sẽ thấy trong phần tiếp theo.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Trên thực tế, chỉ có một vài trường hợp mà value thực ảnh hưởng đến execution plan. Vì vậy, nếu còn phân vân, bạn nên dùng bind parameter, chỉ để ngăn SQL injection.</p></aside>
+<div class="para" id="p03-u028"><p>Các đoạn code sau minh họa cách dùng bind parameter trong nhiều programming language khác nhau.</p></div>
+<h4 id="p03-u029">C#<a class="anchor" href="#p03-u029" aria-label="Liên kết">#</a></h4>
+<h4 id="p03-u030">Without bind parameters:<a class="anchor" href="#p03-u030" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>int subsidiary_id;
+SqlCommand cmd = new SqlCommand(
+                   "select first_name, last_name"
+                 + " from employees"
+                 + " where subsidiary_id = " + subsidiary_id
+                 , connection);</code></pre></div>
+<h4 id="p03-u032">Using a bind parameter:<a class="anchor" href="#p03-u032" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>int subsidiary_id;
+SqlCommand cmd =
+       new SqlCommand(
+                      "select first_name, last_name"
+                    + " from employees"
+                    + " where subsidiary_id = @subsidiary_id
+                    , connection);
+cmd.Parameters.AddWithValue("@subsidiary_id", subsidiary_id);</code></pre></div>
+<div class="para" id="p03-u034"><p>Xem thêm: tài liệu class SqlParameterCollection.</p></div>
+<h4 id="p03-u035">Java<a class="anchor" href="#p03-u035" aria-label="Liên kết">#</a></h4>
+<h4 id="p03-u036">Without bind parameters:<a class="anchor" href="#p03-u036" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>int subsidiary_id;
+Statement command = connection.createStatement(
+                      "select first_name, last_name"
+                   + " from employees"
+                   + " where subsidiary_id = " + subsidiary_id
+                   );</code></pre></div>
+<h4 id="p03-u038">Using a bind parameter:<a class="anchor" href="#p03-u038" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>int subsidiary_id;
+PreparedStatement command = connection.prepareStatement(
+                      "select first_name, last_name"
+                   + " from employees"
+                   + " where subsidiary_id = ?"
+                   );
+command.setInt(1, subsidiary_id);</code></pre></div>
+<div class="para" id="p03-u040"><p>Xem thêm: tài liệu class PreparedStatement.</p></div>
+<h4 id="p03-u041">Perl<a class="anchor" href="#p03-u041" aria-label="Liên kết">#</a></h4>
+<h4 id="p03-u042">Without bind parameters:<a class="anchor" href="#p03-u042" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>my $subsidiary_id;
+my $sth = $dbh-&gt;prepare(
+                    "select first_name, last_name"
+                 . " from employees"
+                 . " where subsidiary_id = $subsidiary_id"
+                 );
+$sth-&gt;execute();</code></pre></div>
+<h4 id="p03-u044">Using a bind parameter:<a class="anchor" href="#p03-u044" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>my $subsidiary_id;
+my $sth = $dbh-&gt;prepare(
+                   "select first_name, last_name"
+                . " from employees"
+                . " where subsidiary_id = ?"
+                );
+$sth-&gt;execute($subsidiary_id);</code></pre></div>
+<div class="para" id="p03-u046"><p>Xem: Programming the Perl <code class="id">DBI</code>.</p></div>
+<h4 id="p03-u047"><code class="id">PHP</code><a class="anchor" href="#p03-u047" aria-label="Liên kết">#</a></h4>
+<h4 id="p03-u048">Using MySQL, without bind parameters:<a class="anchor" href="#p03-u048" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>$mysqli-&gt;query("select first_name, last_name"
+             . " from employees"
+             . " where subsidiary_id = " . $subsidiary_id);</code></pre></div>
+<h4 id="p03-u050">Using a bind parameter:<a class="anchor" href="#p03-u050" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>if ($stmt = $mysqli-&gt;prepare("select first_name, last_name"
+                           . " from employees"
+                           . " where subsidiary_id = ?"))
+{
+   $stmt-&gt;bind_param("i", $subsidiary_id);
+   $stmt-&gt;execute();
+} else {
+  /* handle SQL error */
+}</code></pre></div>
+<div class="para" id="p03-u052"><p>Xem thêm: tài liệu class mysqli_stmt::bind_param và “Prepared statements and stored procedures” trong tài liệu <code class="id">PDO</code>.</p></div>
+<h4 id="p03-u053">Ruby<a class="anchor" href="#p03-u053" aria-label="Liên kết">#</a></h4>
+<h4 id="p03-u054">Without bind parameters:<a class="anchor" href="#p03-u054" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>dbh.execute("select first_name, last_name"
+          + " from employees"
+          + " where subsidiary_id = {subsidiary_id}");</code></pre></div>
+<h4 id="p03-u056">Using a bind parameter:<a class="anchor" href="#p03-u056" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>dbh.prepare("select first_name, last_name"
+          + " from employees"
+          + " where subsidiary_id = ?");
+dbh.execute(subsidiary_id);</code></pre></div>
+<div class="para" id="p03-u058"><p>Xem thêm: “Quoting, Placeholders, and Parameter Binding” trong Ruby <code class="id">DBI</code> Tutorial.</p></div>
+<div class="para" id="p03-u059"><p>Dấu hỏi (?) là placeholder duy nhất được SQL standard định nghĩa. Dấu hỏi là positional parameter. Điều đó nghĩa là các dấu hỏi được đánh số từ trái sang phải. Để bind một value vào một dấu hỏi cụ thể, bạn phải chỉ định số của nó. Tuy nhiên, cách này có thể rất bất tiện vì số thứ tự thay đổi khi thêm hoặc xóa placeholder. Nhiều database cung cấp extension proprietary cho named parameter để giải quyết vấn đề này, chẳng hạn dùng ký hiệu “at” (@name) hoặc dấu hai chấm (:name).</p></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Lưu ý</span></p><p>Bind parameter không thể thay đổi structure của SQL statement. Điều đó nghĩa là bạn không thể dùng bind parameter cho table name hoặc column name. Các bind parameter sau không hoạt động:</p></aside>
+<div class="code "><pre><code>String sql = prepare("SELECT * FROM ? WHERE ?");
+sql.execute('employees', 'employee_id = 1');</code></pre></div>
+<div class="para" id="p03-u062"><p>Nếu cần thay đổi structure của SQL statement trong runtime, hãy dùng dynamic SQL.</p></div>
+<h4 id="p03-u063">Cursor Sharing and Auto Parameterization<a class="anchor" href="#p03-u063" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p03-u064"><p>Optimizer và SQL query càng phức tạp thì việc caching execution plan càng quan trọng. SQL Server và Oracle database có các feature tự động thay literal value trong SQL string bằng bind parameter. Các feature này lần lượt được gọi là <code class="id">CURSOR_SHARING</code> (Oracle) và forced parameterization (SQL Server).</p></div>
+<div class="para" id="p03-u065"><p>Cả hai feature đều là workaround cho application hoàn toàn không dùng bind parameter. Bật các feature này khiến developer không thể chủ động dùng literal value.</p></div>
+<h2 id="p03-u066">Searching for Ranges<a class="anchor" href="#p03-u066" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p03-u067"><p>Các inequality operator như &lt;, &gt; và between có thể dùng index giống như equals operator đã giải thích ở trên. Ngay cả <code class="id">LIKE</code> filter cũng có thể, trong một số điều kiện, dùng index như range condition.</p></div>
+<div class="para" id="p03-u068"><p>Việc dùng các operation này giới hạn lựa chọn về thứ tự column trong multicolumn index. Giới hạn này thậm chí có thể loại bỏ mọi option indexing tối ưu, vì có những query mà bạn đơn giản không thể định nghĩa một thứ tự column “đúng”.</p></div>
+<h3 id="p03-u069">Greater, Less and <code class="id">BETWEEN</code><a class="anchor" href="#p03-u069" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p03-u070"><p>Câu hỏi này dễ trả lời nếu SQL statement nêu rõ start condition và stop condition:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, date_of_birth
+  FROM employees
+ WHERE date_of_birth &gt;= TO_DATE(?, 'YYYY-MM-DD')
+   AND date_of_birth &lt;= TO_DATE(?, 'YYYY-MM-DD')</code></pre></div>
+<div class="para" id="p03-u072"><p>Index trên <code class="id">DATE_OF_BIRTH</code> chỉ được scan trong range đã chỉ định. Scan bắt đầu ở date thứ nhất và kết thúc ở date thứ hai. Chúng ta không thể thu hẹp scanned index range thêm nữa.</p></div>
+<div class="para" id="p03-u073"><p>Start condition và stop condition khó thấy hơn khi có thêm column thứ hai:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, date_of_birth
+  FROM employees
+ WHERE date_of_birth &gt;= TO_DATE(?, 'YYYY-MM-DD')
+   AND date_of_birth &lt;= TO_DATE(?, 'YYYY-MM-DD')
+   AND subsidiary_id = ?</code></pre></div>
+<div class="para" id="p03-u075"><p>Dĩ nhiên, index lý tưởng phải cover cả hai column, nhưng câu hỏi là thứ tự nào?</p></div>
+<div class="para" id="p03-u076"><p>Các figure sau cho thấy thứ tự column ảnh hưởng thế nào đến scanned index range. Trong minh họa này, chúng ta tìm tất cả nhân viên của subsidiary 27 sinh trong khoảng từ ngày 1 tháng 1 đến ngày 9 tháng 1 năm 1971.</p></div>
+<p class="figcap">Hình 2.2 mô tả chi tiết một index trên <code class="id">DATE_OF_BIRTH</code> và <code class="id">SUBSIDIARY_ID</code>, theo đúng thứ tự đó. Database sẽ bắt đầu đi theo leaf node chain ở đâu, hay nói cách khác, tree traversal sẽ kết thúc ở đâu?</p>
+<div class="para" id="p03-u078"><p>Index được sắp xếp theo birth date trước. Chỉ khi hai nhân viên sinh cùng ngày thì <code class="id">SUBSIDIARY_ID</code> mới được dùng để sắp xếp các record đó. Tuy nhiên, query bao phủ một date range. Vì vậy, thứ tự của <code class="id">SUBSIDIARY_ID</code> vô dụng trong tree traversal. Điều này trở nên rõ ràng nếu nhận ra rằng không có entry cho subsidiary 27 trong branch node, dù có entry như vậy trong leaf node. Do đó, filter trên <code class="id">DATE_OF_BIRTH</code> là điều kiện duy nhất giới hạn scanned index range. Scan bắt đầu từ entry đầu tiên match date range và kết thúc ở entry cuối cùng, tức toàn bộ năm leaf node được hiển thị trong <a href="#fig-2-2">Hình 2.2</a>.</p></div>
+<figure class="fig" id="fig-2-2"><figcaption>Hình 2.2. Range Scan trong index <code class="id">DATE_OF_BIRTH</code>, <code class="id">SUBSIDIARY_ID</code></figcaption><div class="img-wrap"><img src="assets/img/p03-u080.png" alt="Hình 2.2. Range Scan trong index DATE_OF_BIRTH, SUBSIDIARY_ID" loading="lazy"></div></figure>
+<div class="para" id="p03-u081"><p>Bức tranh hoàn toàn khác khi đảo thứ tự column. <a href="#fig-2-3">Hình 2.3</a> minh họa scan khi index bắt đầu bằng column <code class="id">SUBSIDIARY_ID</code>.</p></div>
+<div class="para" id="p03-u082"><p>Điểm khác biệt là equals operator giới hạn column index đầu tiên vào một value duy nhất. Trong range của value này (<code class="id">SUBSIDIARY_ID</code> 27), index được sắp xếp theo column thứ hai, tức date of birth, nên không cần đi qua leaf node đầu tiên vì branch node đã cho biết không có employee nào của subsidiary 27 sinh sau ngày 25 tháng 6 năm 1969 trong leaf node đầu tiên.</p></div>
+<figure class="fig" id="fig-2-3"><figcaption>Hình 2.3. Range Scan trong index <code class="id">SUBSIDIARY_ID</code>, <code class="id">DATE_OF_BIRTH</code></figcaption><div class="img-wrap"><img src="assets/img/p03-u084.png" alt="Hình 2.3. Range Scan trong index SUBSIDIARY_ID, DATE_OF_BIRTH" loading="lazy"></div></figure>
+<div class="para" id="p03-u085"><p>Tree traversal dẫn trực tiếp đến leaf node thứ hai. Trong trường hợp này, mọi điều kiện của <code class="kw">where</code> clause đều giới hạn scanned index range, nên scan kết thúc ngay tại leaf node đó.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Quy tắc kinh nghiệm: index cho equality trước, rồi đến range.</p>
+<p>Performance difference thực tế phụ thuộc vào data và search criteria. Difference có thể không đáng kể nếu filter trên <code class="id">DATE_OF_BIRTH</code> tự nó đã rất selective. Date range càng lớn thì performance difference càng lớn.</p></aside>
+<div class="para" id="p03-u087"><p>Với ví dụ này, chúng ta cũng có thể bác bỏ myth rằng column có selectivity cao nhất phải nằm ở vị trí ngoài cùng bên trái của index. Nếu nhìn vào các figure và chỉ xét selectivity của column đầu tiên, ta thấy cả hai điều kiện đều match 13 record. Điều này đúng bất kể filter chỉ theo <code class="id">DATE_OF_BIRTH</code> hay chỉ theo <code class="id">SUBSIDIARY_ID</code>. Selectivity không có ích ở đây, nhưng một thứ tự column vẫn tốt hơn thứ tự còn lại.</p></div>
+<div class="para" id="p03-u088"><p>Để tối ưu performance, việc biết scanned index range rất quan trọng. Với phần lớn database, bạn thậm chí có thể thấy range này trong execution plan, chỉ cần biết phải tìm gì. Execution plan sau của Oracle database chỉ rõ rằng index <code class="id">EMP_TEST</code> bắt đầu bằng column <code class="id">DATE_OF_BIRTH</code>.</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
+|Id | Operation                    | Name      | Rows | Cost |
+--------------------------------------------------------------
+| 0 | SELECT STATEMENT             |           |    1 |    4 |
+|*1 | FILTER                       |           |      |      |
+| 2 |   TABLE ACCESS BY INDEX ROWID| EMPLOYEES |    1 |    4 |
+|*3 |    INDEX RANGE SCAN          | EMP_TEST |     2 |    2 |
+--------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+1 - filter(:END_DT &gt;= :START_DT)
+3 - access(DATE_OF_BIRTH &gt;= :START_DT
+       AND DATE_OF_BIRTH &lt;= :END_DT)
+    filter(SUBSIDIARY_ID = :SUBS_ID)</code></pre></div>
+<div class="para" id="p03-u090"><p>Predicate information của <code class="id">INDEX RANGE SCAN</code> đưa ra manh mối then chốt. Nó xác định các điều kiện của <code class="kw">where</code> clause là access predicate hoặc filter predicate. Đây là cách database cho biết nó sử dụng từng điều kiện như thế nào.</p></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Lưu ý</span></p><p>Execution plan đã được đơn giản hóa để dễ đọc. Appendix ở trang 170 giải thích chi tiết phần “Predicate Information” trong execution plan của Oracle.</p></aside>
+<div class="para" id="p03-u092"><p>Các điều kiện trên column <code class="id">DATE_OF_BIRTH</code> là những điều kiện duy nhất được liệt kê dưới dạng access predicate; chúng giới hạn scanned index range. Vì vậy, <code class="id">DATE_OF_BIRTH</code> là column đầu tiên trong index <code class="id">EMP_TEST</code>. Column <code class="id">SUBSIDIARY_ID</code> chỉ được dùng làm filter.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Quan trọng</span></p><p>Access predicate là start condition và stop condition của index lookup. Chúng định nghĩa scanned index range.</p>
+<p>Index filter predicate chỉ được áp dụng trong lúc leaf node traversal. Chúng không thu hẹp scanned index range.</p>
+<p>Appendix A giải thích cách nhận diện access predicate trong các database khác.</p></aside>
+<div class="para" id="p03-u094"><p>Database có thể dùng mọi điều kiện làm access predicate nếu chúng ta đảo định nghĩa index:</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+| Id | Operation                    | Name      | Rows | Cost |
+---------------------------------------------------------------
+| 0 | SELECT STATEMENT              |           |    1 |    3 |
+|* 1 | FILTER                       |           |      |      |
+| 2 |    TABLE ACCESS BY INDEX ROWID| EMPLOYEES |    1 |    3 |
+|* 3 |    INDEX RANGE SCAN          | EMP_TEST2 |    1 |    2 |
+---------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+1 - filter(:END_DT &gt;= :START_DT)
+3 - access(SUBSIDIARY_ID = :SUBS_ID
+       AND DATE_OF_BIRTH &gt;= :START_DT
+       AND DATE_OF_BIRTH &lt;= :END_T)</code></pre></div>
+<div class="para" id="p03-u096"><p>Cuối cùng là between operator. Nó cho phép chỉ định upper bound và lower bound trong một condition duy nhất:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>DATE_OF_BIRTH BETWEEN '01-JAN-71'
+                  AND '10-JAN-71'</code></pre></div>
+<div class="para" id="p03-u098"><p>Lưu ý rằng between luôn bao gồm các value được chỉ định, giống như khi dùng operator less than or equal to (&lt;=) và greater than or equal to (&gt;=):</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>    DATE_OF_BIRTH &gt;= '01-JAN-71'
+AND DATE_OF_BIRTH &lt;= '10-JAN-71'</code></pre></div>
+<h3 id="p03-u100">Indexing <code class="id">LIKE</code> Filters<a class="anchor" href="#p03-u100" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p03-u101"><p><code class="id">SQL LIKE</code> operator rất thường gây ra behavior performance bất ngờ vì một số search term ngăn database dùng index hiệu quả. Điều đó nghĩa là có search term được index rất tốt, nhưng có search term thì không. Vị trí của wildcard character tạo ra toàn bộ khác biệt.</p></div>
+<div class="para" id="p03-u102"><p>Ví dụ sau dùng wildcard % ở giữa search term:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, date_of_birth
+  FROM employees
+ WHERE UPPER(last_name) LIKE 'WIN%D'</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id | Operation                   | Name        | Rows | Cost |
+---------------------------------------------------------------
+| 0 | SELECT STATEMENT            |             |    1 |    4 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES |       1 |    4 |
+|*2 |   INDEX RANGE SCAN          | EMP_UP_NAME |    1 |    2 |
+---------------------------------------------------------------</code></pre></div>
+<div class="para" id="p03-u105"><p><code class="id">LIKE</code> filter chỉ có thể dùng các character trước wildcard đầu tiên trong lúc tree traversal. Các character còn lại chỉ là filter predicate và không thu hẹp scanned index range. Vì vậy, một <code class="id">LIKE</code> expression có thể chứa hai loại predicate: (1) phần trước wildcard đầu tiên là access predicate; (2) các character còn lại là filter predicate.</p></div>
+<aside class="callout caution "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Cẩn trọng</span></p><p>Với PostgreSQL database, bạn có thể cần chỉ định operator class (ví dụ varchar_pattern_ops) để dùng <code class="id">LIKE</code> expression làm access predicate. Xem “Operator Classes and Operator Families” trong tài liệu PostgreSQL để biết thêm chi tiết.</p></aside>
+<div class="para" id="p03-u107"><p>Prefix trước wildcard đầu tiên càng selective thì scanned index range càng nhỏ. Đổi lại, index lookup càng nhanh. <a href="#fig-2-4">Hình 2.4</a> minh họa quan hệ này bằng ba <code class="id">LIKE</code> expression khác nhau. Cả ba đều chọn cùng một row, nhưng scanned index range, và do đó performance, rất khác nhau.</p></div>
+<figure class="fig" id="fig-2-4"><figcaption>Hình 2.4. Các <code class="id">LIKE</code> search khác nhau</figcaption><div class="img-wrap"><img src="assets/img/p03-u109.png" alt="Hình 2.4. Các LIKE search khác nhau" loading="lazy"></div></figure>
+<div class="para" id="p03-u110"><p>Expression đầu tiên có hai character trước wildcard. Chúng giới hạn scanned index range còn 18 row. Chỉ một row trong số đó match toàn bộ <code class="id">LIKE</code> expression, còn 17 row kia được fetch rồi loại bỏ. Expression thứ hai có prefix dài hơn, thu hẹp scanned index range còn hai row. Với expression này, database chỉ đọc thêm một row không liên quan đến kết quả. Expression cuối cùng hoàn toàn không có filter predicate: database chỉ đọc entry match toàn bộ <code class="id">LIKE</code> expression.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Quan trọng</span></p><p>Chỉ phần trước wildcard đầu tiên mới đóng vai trò access predicate. Các character còn lại không thu hẹp scanned index range; các entry không match chỉ bị loại khỏi result.</p></aside>
+<div class="para" id="p03-u112"><p>Trường hợp ngược lại cũng có thể xảy ra: <code class="id">LIKE</code> expression bắt đầu bằng wildcard. <code class="id">LIKE</code> expression như vậy không thể làm access predicate. Database phải scan toàn bộ table nếu không có condition khác cung cấp access predicate.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Tránh <code class="id">LIKE</code> expression có leading wildcard, ví dụ '%<code class="id">TERM</code>'.</p></aside>
+<div class="para" id="p03-u114"><p>Vị trí của wildcard character ảnh hưởng đến việc dùng index, ít nhất là trên lý thuyết. Trên thực tế, optimizer tạo generic execution plan khi search term được cung cấp qua bind parameter. Khi đó, optimizer phải đoán liệu phần lớn execution có leading wildcard hay không.</p></div>
+<div class="para" id="p03-u115"><p>Phần lớn database chỉ giả định rằng không có leading wildcard khi optimize <code class="id">LIKE</code> condition với bind parameter, nhưng giả định này sai nếu <code class="id">LIKE</code> expression được dùng cho full-text search. Đáng tiếc là không có cách trực tiếp để đánh dấu một <code class="id">LIKE</code> condition là full-text search. Box “Labeling Full-Text <code class="id">LIKE</code> Expressions” trình bày một cách thử nhưng không hoạt động. Cách hiển nhiên nhất là chỉ định search term không dùng bind parameter, nhưng điều đó làm tăng optimization overhead và mở ra lỗ hổng SQL injection. Một giải pháp hiệu quả, vẫn secure và portable, là cố ý obfuscate <code class="id">LIKE</code> condition. “Combining Columns” ở trang 70 giải thích chi tiết vấn đề này.</p></div>
+<aside class="callout sidebar "><p class="title"><span>Labeling Full-Text LIKE Expressions</span></p><p>Khi dùng <code class="id">LIKE</code> operator cho full-text search, chúng ta có thể tách wildcard khỏi search term:</p></aside>
+<div class="code sql"><span class="label">SQL</span><pre><code>WHERE text_column LIKE '%' || ? || '%'</code></pre></div>
+<div class="para" id="p03-u118"><p>Wildcard được viết trực tiếp vào SQL statement, nhưng chúng ta dùng bind parameter cho search term. Database tự xây dựng <code class="id">LIKE</code> expression cuối cùng bằng string concatenation operator || (Oracle, PostgreSQL). Dù dùng bind parameter, <code class="id">LIKE</code> expression cuối cùng luôn bắt đầu bằng wildcard. Đáng tiếc là database không nhận ra điều đó.</p></div>
+<div class="para" id="p03-u119"><p>Với PostgreSQL database, vấn đề khác đi vì PostgreSQL giả định có leading wildcard khi dùng bind parameter cho <code class="id">LIKE</code> expression. PostgreSQL đơn giản là không dùng index trong trường hợp đó. Cách duy nhất để có index access cho <code class="id">LIKE</code> expression là làm cho search term thực tế visible với optimizer.</p></div>
+<div class="para" id="p03-u120"><p>Nếu không dùng bind parameter mà đặt search term trực tiếp vào SQL statement, bạn phải thực hiện các biện pháp phòng ngừa khác để chống SQL injection attack!</p></div>
+<div class="para" id="p03-u121"><p>Ngay cả khi database optimize execution plan cho leading wildcard, performance vẫn có thể không đủ. Trong trường hợp đó, bạn có thể dùng phần khác của <code class="kw">where</code> clause để access dữ liệu hiệu quả, xem thêm “Index Filter Predicates Used Intentionally” ở trang 112. Nếu không có access path nào khác, bạn có thể dùng một trong các full-text index solution proprietary sau.</p></div>
+<h4 id="p03-u122">MySQL<a class="anchor" href="#p03-u122" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p03-u123"><p>MySQL cung cấp keyword match và against cho full-text search. Từ MySQL 5.6, bạn cũng có thể tạo full-text index cho table InnoDB; trước đó, việc này chỉ có thể thực hiện với table MyISAM. Xem “Full-Text Search Functions” trong tài liệu MySQL.</p></div>
+<h4 id="p03-u124">Oracle Database<a class="anchor" href="#p03-u124" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p03-u125"><p>Oracle database cung cấp keyword contains. Xem “Oracle Text Application Developer’s Guide”.</p></div>
+<h4 id="p03-u126">PostgreSQL<a class="anchor" href="#p03-u126" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p03-u127"><p>PostgreSQL cung cấp operator @@ để triển khai full-text search. Xem “Full Text Search” trong tài liệu PostgreSQL.</p></div>
+<div class="footnotes"><p>² <a href="http://www.sai.msu.su/~megera/wiki/wildspeed">http://www.sai.msu.su/~megera/wiki/wildspeed</a></p></div>
+<div class="para" id="p03-u129"><p>Một lựa chọn khác là dùng extension WildSpeed để optimize <code class="id">LIKE</code> expression trực tiếp. Extension này lưu text theo mọi rotation có thể để mỗi character lần lượt nằm ở đầu. Điều đó nghĩa là indexed text không chỉ được lưu một lần mà được lưu nhiều lần bằng số character trong string, nên cần rất nhiều space.</p></div>
+<h4 id="p03-u130">SQL Server<a class="anchor" href="#p03-u130" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p03-u131"><p>SQL Server cung cấp keyword contains. Xem “Full-Text Search” trong tài liệu SQL Server.</p></div>
+<aside class="callout think_about_it "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Hãy suy nghĩ</span></p><p>Làm thế nào để index một <code class="id">LIKE</code> search chỉ có một wildcard ở đầu search term ('%<code class="id">TERM</code>')?</p></aside>
+<h3 id="p03-u133">Index Merge<a class="anchor" href="#p03-u133" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p03-u134"><p>Một trong những câu hỏi phổ biến nhất về indexing là: nên tạo một index cho mỗi column hay một index duy nhất cho tất cả column trong <code class="kw">where</code> clause? Trong phần lớn trường hợp, câu trả lời rất đơn giản: một index có nhiều column tốt hơn.</p></div>
+<div class="para" id="p03-u135"><p>Tuy nhiên, có những query mà một index duy nhất không thể xử lý hoàn hảo, bất kể bạn định nghĩa index thế nào; chẳng hạn query có từ hai range condition độc lập trở lên như ví dụ sau:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, date_of_birth
+  FROM employees
+ WHERE UPPER(last_name) &lt; ?
+   AND date_of_birth    &lt; ?</code></pre></div>
+<div class="para" id="p03-u137"><p>Không thể định nghĩa B-tree index hỗ trợ query này mà không có filter predicate. Để giải thích, chỉ cần nhớ rằng index là một linked list.</p></div>
+<div class="para" id="p03-u138"><p>Nếu định nghĩa index là <code class="id">UPPER</code>(<code class="id">LAST_NAME</code>), <code class="id">DATE_OF_BIRTH</code> theo thứ tự đó, list sẽ bắt đầu bằng A và kết thúc bằng Z. Date of birth chỉ được xét khi có hai employee cùng tên. Nếu định nghĩa index theo thứ tự ngược lại, nó sẽ bắt đầu bằng employee lớn tuổi nhất và kết thúc bằng employee trẻ tuổi nhất. Khi đó, name chỉ có ảnh hưởng nhỏ đến sort order.</p></div>
+<div class="para" id="p03-u139"><p>Dù xoay chuyển định nghĩa index thế nào, các entry vẫn luôn được sắp xếp dọc theo một chain. Một đầu chứa entry nhỏ và đầu kia chứa entry lớn. Vì vậy, index chỉ có thể hỗ trợ một range condition dưới dạng access predicate. Để hỗ trợ hai range condition độc lập cần có trục thứ hai, chẳng hạn như bàn cờ. Query ở trên khi đó sẽ match tất cả entry từ một góc của bàn cờ, nhưng index không giống bàn cờ mà giống một chain. Nó không có góc.</p></div>
+<div class="para" id="p03-u140"><p>Dĩ nhiên, bạn vẫn có thể chấp nhận filter predicate và dùng multicolumn index. Trong nhiều trường hợp, đó vẫn là giải pháp tốt nhất. Khi đó, định nghĩa index nên đặt column selective hơn lên trước để column này có thể được dùng làm access predicate. Đây có thể là nguồn gốc của myth “most selective first”, nhưng quy tắc này chỉ đúng khi bạn không thể tránh filter predicate.</p></div>
+<div class="para" id="p03-u141"><p>Lựa chọn còn lại là dùng hai index riêng, mỗi index cho một column. Khi đó database trước tiên phải scan cả hai index rồi kết hợp kết quả.</p></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Lưu ý</span></p><p>Một index scan nhanh hơn hai index scan.</p></aside>
+<div class="para" id="p03-u143"><p>Database dùng hai phương pháp để kết hợp index. Thứ nhất là index join. Chương 4, “The Join Operation”, giải thích chi tiết các related algorithm. Cách thứ hai sử dụng functionality từ thế giới data warehouse.</p></div>
+<div class="para" id="p03-u144"><p>Data warehouse là mẹ của mọi ad-hoc query. Nó chỉ cần vài cú click để kết hợp các condition tùy ý thành query bạn muốn. Không thể dự đoán những tổ hợp column nào có thể xuất hiện trong <code class="kw">where</code> clause, khiến việc indexing như đã giải thích từ đầu gần như không thể.</p></div>
+<div class="para" id="p03-u145"><p>Data warehouse dùng một loại index chuyên dụng để giải quyết vấn đề đó: bitmap index. Ưu điểm của bitmap index là chúng có thể được kết hợp khá dễ dàng. Vì vậy, bạn có performance khá tốt khi index từng column riêng lẻ. Ngược lại, nếu biết query từ trước để tạo một tailored multicolumn B-tree index, index đó vẫn nhanh hơn việc kết hợp nhiều bitmap index.</p></div>
+<div class="para" id="p03-u146"><p>Điểm yếu lớn nhất của bitmap index là khả năng scale rất tệ với <code class="kw">insert</code>, <code class="kw">update</code> và <code class="kw">delete</code>. Concurrent write operation gần như không thể thực hiện. Điều đó không thành vấn đề trong data warehouse vì các load process được schedule lần lượt. Trong online application, bitmap index phần lớn là vô dụng.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Quan trọng</span></p><p>Bitmap index gần như không thể dùng cho online transaction processing (<code class="id">OLTP</code>).</p></aside>
+<div class="para" id="p03-u148"><p>Nhiều database product cung cấp giải pháp hybrid giữa B-tree và bitmap index. Khi không có access path tốt hơn, chúng chuyển kết quả của một số B-tree scan thành bitmap structure trong memory. Các structure này có thể được kết hợp hiệu quả. Bitmap structure không được lưu persistent mà bị loại bỏ sau khi statement execute, qua đó tránh vấn đề write scalability kém. Nhược điểm là cần nhiều memory và <code class="id">CPU</code> time. Xét cho cùng, phương pháp này là một hành động tuyệt vọng của optimizer.</p></div>
+<h2 id="p03-u149">Partial Indexes<a class="anchor" href="#p03-u149" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p03-u150"><p>Cho đến đây, chúng ta chỉ bàn về những column được thêm vào index. Với partial index (PostgreSQL) hoặc filtered index (SQL Server), bạn cũng có thể chỉ định những row được index.</p></div>
+<aside class="callout caution "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Cẩn trọng</span></p><p>Oracle database có cách tiếp cận riêng đối với partial indexing. Phần tiếp theo sẽ giải thích cách đó dựa trên phần này.</p></aside>
+<div class="para" id="p03-u152"><p>Partial index hữu ích cho các <code class="kw">where</code> condition thường dùng với constant value, chẳng hạn status code trong ví dụ sau:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT message
+  FROM messages
+ WHERE processed = 'N'
+   AND receiver = ?</code></pre></div>
+<div class="para" id="p03-u154"><p>Các query như vậy rất phổ biến trong queuing system. Query lấy tất cả message chưa được process của một recipient cụ thể. Message đã được process hiếm khi cần đến. Nếu cần, chúng thường được access bằng một criteria cụ thể hơn như primary key.</p></div>
+<div class="para" id="p03-u155"><p>Chúng ta có thể optimize query này bằng một two-column index. Chỉ xét query này, thứ tự column không quan trọng vì không có range condition.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX messages_todo
+          ON messages (receiver, processed)</code></pre></div>
+<div class="para" id="p03-u157"><p>Index hoàn thành mục đích, nhưng nó chứa nhiều row không bao giờ được tìm kiếm, cụ thể là tất cả message đã được process. Dù vậy, nhờ logarithmic scalability, index vẫn làm query rất nhanh, dù lãng phí nhiều disk space.</p></div>
+<div class="para" id="p03-u158"><p>Với partial indexing, bạn có thể giới hạn index để chỉ chứa message chưa được process. Syntax cho việc này đơn giản đến bất ngờ: một <code class="kw">where</code> clause.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX messages_todo
+          ON messages (receiver)
+       WHERE processed = 'N'</code></pre></div>
+<div class="para" id="p03-u160"><p>Index chỉ chứa những row thỏa mãn <code class="kw">where</code> clause. Trong trường hợp cụ thể này, chúng ta thậm chí có thể bỏ column <code class="id">PROCESSED</code> vì nó luôn là 'N'. Điều đó có nghĩa index giảm kích thước theo hai chiều: theo chiều dọc vì chứa ít row hơn; theo chiều ngang vì đã bỏ một column.</p></div>
+<div class="para" id="p03-u161"><p>Vì vậy, index rất nhỏ. Với một queue, điều này thậm chí có thể nghĩa là kích thước index không đổi dù table tăng không giới hạn. Index không chứa mọi message, chỉ chứa message chưa được process.</p></div>
+<div class="para" id="p03-u162"><p>Where clause của partial index có thể phức tạp tùy ý. Giới hạn căn bản duy nhất liên quan đến function: bạn chỉ có thể dùng deterministic function, giống như ở mọi nơi khác trong index definition. Tuy nhiên, SQL Server có rule hạn chế hơn và không cho phép function cũng như OR operator trong index predicate.</p></div>
+<div class="para" id="p03-u163"><p>Database có thể dùng partial index bất cứ khi nào <code class="kw">where</code> clause xuất hiện trong query.</p></div>
+<aside class="callout think_about_it "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Hãy suy nghĩ</span></p><p>Index nhỏ nhất có đặc điểm gì với query sau?</p></aside>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT message
+  FROM messages
+ WHERE processed = 'N';</code></pre></div>
+<h2 id="p04-u001"><code class="id">NULL</code> trong Oracle Database<a class="anchor" href="#p04-u001" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p04-u002"><p><code class="id">NULL</code> trong SQL thường gây nhầm lẫn. Ý tưởng cơ bản của <code class="id">NULL</code> — biểu diễn dữ liệu bị thiếu — khá đơn giản, nhưng có một số điểm đặc biệt. Chẳng hạn, bạn phải dùng IS <code class="id">NULL</code> thay vì = <code class="id">NULL</code>. Oracle database còn có thêm những điểm khác thường về <code class="id">NULL</code>, một mặt vì nó không phải lúc nào cũng xử lý <code class="id">NULL</code> theo đúng standard, mặt khác vì nó xử lý <code class="id">NULL</code> trong index theo một cách rất “đặc biệt”.</p></div>
+<div class="para" id="p04-u003"><p>SQL standard không định nghĩa <code class="id">NULL</code> là một value mà là placeholder cho một value bị thiếu hoặc chưa biết. Vì vậy, không có value nào có thể là <code class="id">NULL</code>. Thay vào đó, Oracle database xử lý empty string như <code class="id">NULL</code>:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>   SELECT     '0 IS NULL???' AS "what is NULL?" FROM dual
+    WHERE      0 IS NULL
+UNION ALL
+   SELECT    '0 is not null' FROM dual
+    WHERE     0 IS NOT NULL
+UNION ALL
+   SELECT ''''' IS NULL???' FROM dual
+    WHERE    '' IS NULL
+UNION ALL
+   SELECT ''''' is not null' FROM dual
+    WHERE    '' IS NOT NULL;
+what is NULL?
+--------------
+0 is not null
+'' IS NULL???</code></pre></div>
+<div class="para" id="p04-u005"><p>Để vấn đề thêm rối, có một trường hợp Oracle database thậm chí xử lý <code class="id">NULL</code> như empty string:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT dummy
+     , dummy || ''
+     , dummy || NULL
+  FROM dual;
+D D D
+- - -
+X X X</code></pre></div>
+<div class="para" id="p04-u007"><p>Nối column <code class="id">DUMMY</code> (luôn chứa 'X') với <code class="id">NULL</code> đáng lẽ phải trả về <code class="id">NULL</code>.</p></div>
+<div class="para" id="p04-u008"><p>Concept <code class="id">NULL</code> được dùng trong nhiều programming language. Dù nhìn ở đâu, empty string cũng không bao giờ là <code class="id">NULL</code>… ngoại trừ trong Oracle database. Trên thực tế, không thể lưu empty string vào field <code class="id">VARCHAR2</code>. Nếu thử làm vậy, Oracle database chỉ lưu <code class="id">NULL</code>.</p></div>
+<div class="para" id="p04-u009"><p>Điểm đặc biệt này không chỉ kỳ lạ mà còn nguy hiểm. Ngoài ra, điểm khác thường của Oracle database với <code class="id">NULL</code> chưa dừng ở đó — nó tiếp tục ảnh hưởng đến indexing.</p></div>
+<h3 id="p04-u010">Indexing <code class="id">NULL</code><a class="anchor" href="#p04-u010" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p04-u011"><p>Oracle database không đưa row vào index nếu tất cả column được index đều là <code class="id">NULL</code>. Điều đó có nghĩa mọi index đều là một partial index — tương đương với việc có <code class="kw">where</code> clause:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX idx
+          ON tbl (A, B, C, ...)
+       WHERE A IS NOT NULL
+          OR B IS NOT NULL
+          OR C IS NOT NULL
+             ...;</code></pre></div>
+<div class="para" id="p04-u013"><p>Hãy xét index <code class="id">EMP_DOB</code>. Nó chỉ có một column là <code class="id">DATE_OF_BIRTH</code>. Một row không có value <code class="id">DATE_OF_BIRTH</code> sẽ không được thêm vào index này.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>INSERT INTO employees ( subsidiary_id, employee_id
+                      , first_name , last_name
+                      , phone_number)
+               VALUES ( ?, ?, ?, ?, ? );</code></pre></div>
+<div class="para" id="p04-u015"><p>Insert statement không set <code class="id">DATE_OF_BIRTH</code> nên value mặc định là <code class="id">NULL</code> — vì vậy record không được thêm vào index <code class="id">EMP_DOB</code>. Do đó, index không thể hỗ trợ query tìm các record có <code class="id">DATE_OF_BIRTH</code> IS <code class="id">NULL</code>:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name
+  FROM employees
+ WHERE date_of_birth IS NULL;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------
+| Id | Operation         | Name      | Rows | Cost |
+----------------------------------------------------
+| 0 | SELECT STATEMENT |             |    1 | 477 |
+|* 1 | TABLE ACCESS FULL| EMPLOYEES |     1 | 477 |
+----------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   1 - filter("DATE_OF_BIRTH" IS NULL)</code></pre></div>
+<div class="para" id="p04-u018"><p>Tuy nhiên, record vẫn được đưa vào concatenated index nếu ít nhất một column của index không phải <code class="id">NULL</code>:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX demo_null
+          ON employees (subsidiary_id, date_of_birth);</code></pre></div>
+<div class="para" id="p04-u020"><p>Row vừa tạo được thêm vào index vì <code class="id">SUBSIDIARY_ID</code> không phải <code class="id">NULL</code>. Vì vậy, index này có thể hỗ trợ query tìm tất cả employee thuộc một subsidiary cụ thể nhưng không có value <code class="id">DATE_OF_BIRTH</code>:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name
+  FROM employees
+ WHERE subsidiary_id = ?
+   AND date_of_birth IS NULL;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
+| Id | Operation                   | Name      | Rows | Cost |
+--------------------------------------------------------------
+| 0 | SELECT STATEMENT             |           |    1 |    2 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES |      1 |    2 |
+|* 2 |   INDEX RANGE SCAN          | DEMO_NULL |    1 |    1 |
+--------------------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   2 - access("SUBSIDIARY_ID"=TO_NUMBER(?)
+          AND "DATE_OF_BIRTH" IS NULL)</code></pre></div>
+<div class="para" id="p04-u023"><p>Lưu ý rằng index cover toàn bộ <code class="kw">where</code> clause; mọi filter đều được dùng làm access predicate trong <code class="id">INDEX RANGE SCAN</code>.</p></div>
+<div class="para" id="p04-u024"><p>Chúng ta có thể extend concept này cho query ban đầu để tìm mọi record có <code class="id">DATE_OF_BIRTH</code> IS <code class="id">NULL</code>. Khi đó, column <code class="id">DATE_OF_BIRTH</code> phải là column ngoài cùng bên trái trong index để có thể được dùng làm access predicate. Dù bản thân query không cần column index thứ hai, chúng ta thêm một column không bao giờ là <code class="id">NULL</code> để bảo đảm index có đủ mọi row.</p></div>
+<div class="para" id="p04-u025"><p>Có thể dùng bất kỳ column nào có <code class="id">NOT NULL</code> constraint, chẳng hạn <code class="id">SUBSIDIARY_ID</code>, cho mục đích đó.</p></div>
+<div class="para" id="p04-u026"><p>Một cách khác là dùng constant expression không bao giờ là <code class="id">NULL</code>. Nhờ vậy, index sẽ có đủ mọi row — kể cả khi <code class="id">DATE_OF_BIRTH</code> là <code class="id">NULL</code>.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>DROP   INDEX emp_dob;
+CREATE INDEX emp_dob ON employees (date_of_birth, '1');</code></pre></div>
+<div class="para" id="p04-u028"><p>Về mặt kỹ thuật, đây là một function-based index. Ví dụ này cũng bác bỏ myth rằng Oracle database không thể index <code class="id">NULL</code>.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Thêm một column không thể là <code class="id">NULL</code> để index <code class="id">NULL</code> như mọi value khác.</p></aside>
+<h3 id="p04-u030"><code class="id">NOT NULL</code> Constraints<a class="anchor" href="#p04-u030" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p04-u031"><p>Để index một điều kiện IS <code class="id">NULL</code> trong Oracle database, index phải có một column không bao giờ có thể là <code class="id">NULL</code>.</p></div>
+<div class="para" id="p04-u032"><p>Tuy vậy, chỉ không có entry <code class="id">NULL</code> là chưa đủ. Database phải chắc chắn rằng không bao giờ có entry <code class="id">NULL</code>; nếu không, database phải giả định table có những row không nằm trong index.</p></div>
+<div class="para" id="p04-u033"><p>Index sau chỉ hỗ trợ query nếu column <code class="id">LAST_NAME</code> có <code class="id">NOT NULL</code> constraint:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>DROP INDEX emp_dob;
+CREATE INDEX emp_dob_name
+          ON employees (date_of_birth, last_name);
+SELECT *
+  FROM employees
+ WHERE date_of_birth IS NULL;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id |Operation                   | Name         | Rows | Cost |
+---------------------------------------------------------------
+| 0 |SELECT STATEMENT            |              |    1 |    3 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES    |    1 |    3 |
+|*2 | INDEX RANGE SCAN           | EMP_DOB_NAME |    1 |    2 |
+---------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   2 - access("DATE_OF_BIRTH" IS NULL)</code></pre></div>
+<div class="para" id="p04-u036"><p>Gỡ <code class="id">NOT NULL</code> constraint khiến index không thể dùng cho query này:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>ALTER TABLE employees MODIFY last_name NULL;
+
+SELECT *
+  FROM employees
+ WHERE date_of_birth IS NULL;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------
+| Id | Operation         | Name      | Rows | Cost |
+----------------------------------------------------
+| 0 | SELECT STATEMENT |             |    1 | 477 |
+|* 1 | TABLE ACCESS FULL| EMPLOYEES |     1 | 477 |
+----------------------------------------------------</code></pre></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Thiếu <code class="id">NOT NULL</code> constraint có thể ngăn index được sử dụng trong Oracle database — đặc biệt với query count(*).</p></aside>
+<div class="para" id="p04-u040"><p>Ngoài <code class="id">NOT NULL</code> constraint, database cũng biết các constant expression như ở phần trước không thể trở thành <code class="id">NULL</code>.</p></div>
+<div class="para" id="p04-u041"><p>Tuy nhiên, index trên user-defined function không áp đặt <code class="id">NOT NULL</code> constraint lên index expression:</p></div>
+<div class="code "><pre><code>CREATE OR REPLACE FUNCTION blackbox(id IN NUMBER) RETURN NUMBER
+DETERMINISTIC
+IS BEGIN
+   RETURN id;
+END;
+
+DROP INDEX emp_dob_name;
+CREATE INDEX emp_dob_bb
+    ON employees (date_of_birth, blackbox(employee_id));</code></pre></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM employees
+ WHERE date_of_birth IS NULL;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------
+| Id | Operation         | Name      | Rows | Cost |
+----------------------------------------------------
+| 0 | SELECT STATEMENT |             |    1 | 477 |
+|* 1 | TABLE ACCESS FULL| EMPLOYEES |     1 | 477 |
+----------------------------------------------------</code></pre></div>
+<div class="para" id="p04-u045"><p>Tên function <code class="id">BLACKBOX</code> nhấn mạnh rằng optimizer không biết function làm gì. Chúng ta thấy function truyền thẳng input value, nhưng với database, đó chỉ là một function trả về number. Tính chất <code class="id">NOT NULL</code> của parameter bị mất. Dù index phải có mọi row, database không biết điều đó nên không thể dùng index cho query.</p></div>
+<div class="para" id="p04-u046"><p>Nếu biết function không bao giờ trả về <code class="id">NULL</code> như trong ví dụ này, bạn có thể thay đổi query để phản ánh điều đó:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM employees
+ WHERE date_of_birth IS NULL
+   AND blackbox(employee_id) IS NOT NULL;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>-------------------------------------------------------------
+|Id |Operation                   | Name       | Rows | Cost |
+-------------------------------------------------------------
+| 0 |SELECT STATEMENT            |            |    1 |    3 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES |     1 |    3 |
+|*2 | INDEX RANGE SCAN           | EMP_DOB_BB |    1 |    2 |
+-------------------------------------------------------------</code></pre></div>
+<div class="para" id="p04-u049"><p>Điều kiện bổ sung trong <code class="kw">where</code> clause luôn đúng nên không thay đổi kết quả. Tuy nhiên, Oracle database nhận ra rằng query chỉ lấy các row chắc chắn phải nằm trong index theo định nghĩa.</p></div>
+<div class="para" id="p04-u050"><p>Đáng tiếc là không có cách nào đánh dấu một function không bao giờ trả về <code class="id">NULL</code>, nhưng bạn có thể chuyển lời gọi function vào một virtual column (từ 11g) và đặt <code class="id">NOT NULL</code> constraint lên column đó.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>ALTER TABLE employees ADD bb_expression
+      GENERATED ALWAYS AS (blackbox(employee_id)) NOT NULL;
+DROP    INDEX emp_dob_bb;
+CREATE INDEX emp_dob_bb
+     ON employees (date_of_birth, bb_expression);</code></pre></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
+  FROM employees
+ WHERE date_of_birth IS NULL;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>-------------------------------------------------------------
+|Id |Operation                   | Name       | Rows | Cost |
+-------------------------------------------------------------
+| 0 |SELECT STATEMENT            |            |    1 |    3 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES |     1 |    3 |
+|*2 | INDEX RANGE SCAN           | EMP_DOB_BB |    1 |    2 |
+-------------------------------------------------------------</code></pre></div>
+<div class="para" id="p04-u054"><p>Oracle database biết rằng một số internal function chỉ trả về <code class="id">NULL</code> nếu input được cung cấp là <code class="id">NULL</code>.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>DROP INDEX emp_dob_bb;
+
+CREATE INDEX emp_dob_upname
+    ON employees (date_of_birth, upper(last_name));
+SELECT *
+  FROM employees
+ WHERE date_of_birth IS NULL;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------------
+|Id |Operation                   | Name           | Cost |
+----------------------------------------------------------
+| 0 |SELECT STATEMENT            |                |    3 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES      |    3 |
+|*2 | INDEX RANGE SCAN           | EMP_DOB_UPNAME |    2 |
+----------------------------------------------------------</code></pre></div>
+<div class="para" id="p04-u057"><p>Function <code class="id">UPPER</code> bảo toàn tính chất <code class="id">NOT NULL</code> của column <code class="id">LAST_NAME</code>. Tuy nhiên, gỡ constraint sẽ khiến index không thể dùng được:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>ALTER TABLE employees MODIFY last_name NULL;
+SELECT *
+  FROM employees
+ WHERE date_of_birth IS NULL;</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------
+| Id | Operation         | Name      | Rows | Cost |
+----------------------------------------------------
+| 0 | SELECT STATEMENT |             |    1 | 477 |
+|* 1 | TABLE ACCESS FULL| EMPLOYEES |     1 | 477 |
+----------------------------------------------------</code></pre></div>
+<h3 id="p04-u060">Emulating Partial Indexes<a class="anchor" href="#p04-u060" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p04-u061"><p>Cách Oracle database xử lý <code class="id">NULL</code> trong index một cách khác thường có thể được dùng để mô phỏng partial index. Để làm vậy, chúng ta chỉ cần dùng <code class="id">NULL</code> cho những row không nên được index.</p></div>
+<div class="para" id="p04-u062"><p>Để minh họa, chúng ta mô phỏng partial index sau:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX messages_todo
+          ON messages (receiver)
+       WHERE processed = 'N'</code></pre></div>
+<div class="para" id="p04-u064"><p>Trước tiên, chúng ta cần một function chỉ trả về value <code class="id">RECEIVER</code> khi value <code class="id">PROCESSED</code> là 'N'.</p></div>
+<div class="code "><pre><code>CREATE OR REPLACE
+FUNCTION pi_processed(processed CHAR, receiver NUMBER)
+RETURN NUMBER
+DETERMINISTIC
+AS BEGIN
+   IF processed IN ('N') THEN
+      RETURN receiver;
+   ELSE
+      RETURN NULL;
+   END IF;
+END;
+/</code></pre></div>
+<div class="para" id="p04-u066"><p>Function phải deterministic để có thể dùng trong index definition.</p></div>
+<div class="para" id="p04-u067"><p>Bây giờ chúng ta có thể tạo index chỉ chứa các row có <code class="id">PROCESSED</code>='N'.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX messages_todo
+          ON messages (pi_processed(processed, receiver));</code></pre></div>
+<div class="para" id="p04-u069"><p>Để sử dụng index, bạn phải dùng indexed expression trong query:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT message
+  FROM messages
+ WHERE pi_processed(processed, receiver) = ?</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------------
+|Id | Operation                   | Name          | Cost |
+----------------------------------------------------------
+| 0 | SELECT STATEMENT            |               | 5330 |
+| 1 | TABLE ACCESS BY INDEX ROWID| MESSAGES       | 5330 |
+|*2 |   INDEX RANGE SCAN          | MESSAGES_TODO | 5303 |
+----------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+   2 - access("PI_PROCESSED"("PROCESSED","RECEIVER")=:X)</code></pre></div>
+<h4 id="p04-u072">Partial Indexes, Part II<a class="anchor" href="#p04-u072" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p04-u073"><p>Từ release 11g, có một cách tiếp cận thứ hai — đáng sợ không kém — để mô phỏng partial index trong Oracle database: dùng một index partition bị làm hỏng có chủ đích cùng parameter <code class="id">SKIP_UNUSABLE_INDEX</code>.</p></div>
+<h2 id="p04-u074">Obfuscated Conditions<a class="anchor" href="#p04-u074" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p04-u075"><p>Các phần sau trình bày một số phương pháp phổ biến để obfuscate condition. Obfuscated condition là <code class="kw">where</code> clause được viết theo cách ngăn index được sử dụng đúng mức. Đây là tập hợp các anti-pattern mà mọi developer nên biết và tránh.</p></div>
+<h3 id="p04-u076">Date Types<a class="anchor" href="#p04-u076" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p04-u077"><p>Phần lớn obfuscation liên quan đến <code class="id">DATE</code> type. Oracle database đặc biệt dễ gặp vấn đề ở đây vì nó chỉ có một <code class="id">DATE</code> type và type này luôn bao gồm cả time component.</p></div>
+<div class="para" id="p04-u078"><p>Dùng function <code class="id">TRUNC</code> để loại bỏ time component đã trở thành một practice phổ biến. Thực ra function này không loại bỏ time mà set nó về midnight, vì Oracle database không có pure <code class="id">DATE</code> type. Để bỏ qua time component khi search, bạn có thể dùng function <code class="id">TRUNC</code> ở cả hai phía của phép so sánh — ví dụ để tìm sales của ngày hôm qua:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM sales
+ WHERE TRUNC(sale_date) = TRUNC(sysdate - INTERVAL '1' DAY)</code></pre></div>
+<div class="para" id="p04-u080"><p>Đây là một statement hoàn toàn hợp lệ và đúng, nhưng không thể sử dụng đúng mức index trên <code class="id">SALE_DATE</code>. Như đã giải thích trong “Case-Insensitive Search Using <code class="id">UPPER</code> or <code class="id">LOWER</code>” ở trang 24, <code class="id">TRUNC</code>(sale_date) hoàn toàn khác <code class="id">SALE_DATE</code> — function là black box đối với database.</p></div>
+<div class="para" id="p04-u081"><p>Có một giải pháp khá đơn giản cho vấn đề này: function-based index.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX index_name
+          ON table_name (TRUNC(sale_date))</code></pre></div>
+<div class="para" id="p04-u083"><p>Nhưng khi đó bạn phải luôn dùng <code class="id">TRUNC</code>(date_column) trong <code class="kw">where</code> clause. Nếu dùng không nhất quán — lúc có, lúc không có <code class="id">TRUNC</code> — bạn sẽ cần hai index!</p></div>
+<div class="para" id="p04-u084"><p>Vấn đề tương tự cũng xảy ra với database có pure date type nếu bạn search một khoảng thời gian dài hơn, như trong MySQL query sau:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM sales
+ WHERE DATE_FORMAT(sale_date, "%Y-%M")
+     = DATE_FORMAT(now()    , "%Y-%M')</code></pre></div>
+<div class="para" id="p04-u086"><p>Query dùng date format chỉ chứa year và month: một lần nữa, đây là query hoàn toàn đúng nhưng có cùng vấn đề như trước. Tuy nhiên, giải pháp ở trên không áp dụng được vì MySQL không có function-based index.</p></div>
+<div class="para" id="p04-u087"><p>Giải pháp thay thế là dùng explicit range condition. Đây là một giải pháp generic hoạt động với mọi database:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM sales
+ WHERE sale_date BETWEEN quarter_begin(?)
+                     AND quarter_end(?)</code></pre></div>
+<div class="para" id="p04-u089"><p>Nếu đã làm bài tập, có lẽ bạn nhận ra pattern từ exercise về tất cả employee 42 tuổi.</p></div>
+<div class="para" id="p04-u090"><p>Một index thông thường trên <code class="id">SALE_DATE</code> là đủ để optimize query này. Các function <code class="id">QUARTER_BEGIN</code> và <code class="id">QUARTER_END</code> tính boundary date. Việc tính toán có thể hơi phức tạp vì operator between luôn bao gồm các boundary value. Vì vậy, function <code class="id">QUARTER_END</code> phải trả về một time stamp ngay trước ngày đầu tiên của quarter tiếp theo nếu <code class="id">SALE_DATE</code> có time component. Logic này có thể được ẩn trong function.</p></div>
+<div class="para" id="p04-u091"><p>Các ví dụ ở những trang sau cho thấy cách implement function <code class="id">QUARTER_BEGIN</code> và <code class="id">QUARTER_END</code> cho nhiều database khác nhau.</p></div>
+<h4 id="p04-u092">MySQL<a class="anchor" href="#p04-u092" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>CREATE FUNCTION quarter_begin(dt DATETIME)
+RETURNS DATETIME DETERMINISTIC
+RETURN CONVERT
+       (
+          CONCAT
+          ( CONVERT(YEAR(dt),CHAR(4))
+          , '-'
+          , CONVERT(QUARTER(dt)*3-2,CHAR(2))
+          , '-01'
+          )
+       , datetime
+       );
+CREATE FUNCTION quarter_end(dt DATETIME)
+RETURNS DATETIME DETERMINISTIC
+RETURN DATE_ADD
+       ( DATE_ADD ( quarter_begin(dt), INTERVAL 3 MONTH )
+       , INTERVAL -1 MICROSECOND);</code></pre></div>
+<h4 id="p04-u094">Oracle Database<a class="anchor" href="#p04-u094" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>CREATE FUNCTION quarter_begin(dt IN DATE)
+RETURN DATE
+AS
+BEGIN
+   RETURN TRUNC(dt, 'Q');
+END;
+/
+CREATE FUNCTION quarter_end(dt IN DATE)
+RETURN DATE
+AS
+BEGIN
+   -- the Oracle DATE type has seconds resolution
+   -- subtract one second from the first
+   -- day of the following quarter
+   RETURN TRUNC(ADD_MONTHS(dt, +3), 'Q')
+        - (1/(24*60*60));
+END;
+/</code></pre></div>
+<h4 id="p04-u096">PostgreSQL<a class="anchor" href="#p04-u096" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>CREATE FUNCTION quarter_begin(dt timestamp with time zone)
+RETURNS timestamp with time zone AS $$
+BEGIN
+     RETURN date_trunc('quarter', dt);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION quarter_end(dt timestamp with time zone)
+RETURNS timestamp with time zone AS $$
+BEGIN
+   RETURN date_trunc('quarter', dt)
+          + interval '3 month'
+          - interval '1 microsecond';
+END;
+$$ LANGUAGE plpgsql;</code></pre></div>
+<h4 id="p04-u098">SQL Server<a class="anchor" href="#p04-u098" aria-label="Liên kết">#</a></h4>
+<div class="code "><pre><code>CREATE FUNCTION quarter_begin (@dt DATETIME )
+RETURNS DATETIME
+BEGIN
+   RETURN DATEADD (qq, DATEDIFF (qq, 0, @dt), 0)
+END
+GO
+CREATE FUNCTION quarter_end (@dt DATETIME )
+RETURNS DATETIME
+BEGIN
+   RETURN DATEADD
+          ( ms
+          , -3
+          , DATEADD(mm, 3, dbo.quarter_begin(@dt))
+          );
+END
+GO</code></pre></div>
+<div class="para" id="p04-u100"><p>Bạn có thể dùng các auxiliary function tương tự cho những period khác — phần lớn sẽ đơn giản hơn các ví dụ trên, đặc biệt khi dùng condition lớn hơn hoặc bằng (&gt;=) và nhỏ hơn (&lt;) thay cho operator between. Tất nhiên, nếu muốn bạn cũng có thể tính boundary date trong application.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Viết query cho các period liên tục dưới dạng explicit range condition. Hãy làm vậy ngay cả với một ngày — ví dụ, trong Oracle database:</p></aside>
+<div class="code sql"><span class="label">SQL</span><pre><code>    sale_date &gt;= TRUNC(sysdate)
+AND sale_date &lt; TRUNC(sysdate + INTERVAL '1' DAY)</code></pre></div>
+<div class="para" id="p04-u103"><p>Một obfuscation phổ biến khác là so sánh date dưới dạng string, như trong PostgreSQL example sau:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM sales
+ WHERE TO_CHAR(sale_Date, 'YYYY-MM-DD') = '1970-01-01'</code></pre></div>
+<div class="para" id="p04-u105"><p>Vấn đề một lần nữa là việc convert <code class="id">DATE_COLUMN</code>. Những condition như vậy thường được tạo ra vì nghĩ rằng database chỉ nhận được type number và string. Tuy nhiên, bind parameter hỗ trợ mọi data type. Chẳng hạn, bạn có thể dùng object java.util.Date làm bind parameter. Đây là một lợi ích khác của bind parameter.</p></div>
+<div class="para" id="p04-u106"><p>Nếu không thể làm vậy, bạn chỉ cần convert search term thay vì table column:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM sales
+ WHERE sale_date = TO_DATE('1970-01-01', 'YYYY-MM-DD')</code></pre></div>
+<div class="para" id="p04-u108"><p>Query này có thể dùng một index thông thường trên <code class="id">SALE_DATE</code>. Hơn nữa, nó chỉ convert input string một lần. Statement trước phải convert mọi date được lưu trong table trước khi có thể so sánh chúng với search term.</p></div>
+<div class="para" id="p04-u109"><p>Dù thay đổi theo cách nào — dùng bind parameter hay convert phía còn lại của phép so sánh — bạn đều có thể dễ dàng tạo bug nếu <code class="id">SALE_DATE</code> có time component. Khi đó, bạn phải dùng explicit range condition:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM sales
+ WHERE sale_date &gt;= TO_DATE('1970-01-01', 'YYYY-MM-DD')
+   AND sale_date &lt; TO_DATE('1970-01-01', 'YYYY-MM-DD')
+                  + INTERVAL '1' DAY</code></pre></div>
+<div class="para" id="p04-u111"><p>Luôn cân nhắc dùng explicit range condition khi so sánh date.</p></div>
+<h4 id="p04-u112"><code class="id">LIKE</code> on Date Types<a class="anchor" href="#p04-u112" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p04-u113"><p>Obfuscation sau đây đặc biệt khó nhận ra:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>sale_date LIKE SYSDATE</code></pre></div>
+<div class="para" id="p04-u115"><p>Thoạt nhìn, nó không giống obfuscation vì không dùng function nào.</p></div>
+<div class="para" id="p04-u116"><p>Tuy nhiên, operator <code class="id">LIKE</code> bắt buộc phải so sánh string. Tùy database, điều đó có thể gây error hoặc tạo implicit type conversion ở cả hai phía. Phần “Predicate Information” của execution plan cho thấy Oracle database xử lý thế nào:</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>filter( INTERNAL_FUNCTION(SALE_DATE)
+   LIKE TO_CHAR(SYSDATE@!))</code></pre></div>
+<div class="para" id="p04-u118"><p>Function <code class="id">INTERNAL_FUNCTION</code> convert type của column <code class="id">SALE_DATE</code>. Một tác dụng phụ là nó cũng ngăn việc dùng index thông thường trên <code class="id">DATE_COLUMN</code>, giống như mọi function khác.</p></div>
+<h3 id="p04-u119">Numeric Strings<a class="anchor" href="#p04-u119" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p04-u120"><p>Numeric string là number được lưu trong text column. Dù đây là một practice rất tệ, nó không tự động làm index vô dụng nếu bạn nhất quán xử lý value đó như string:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM ...
+ WHERE numeric_string = '42'</code></pre></div>
+<div class="para" id="p04-u122"><p>Dĩ nhiên statement này có thể dùng index trên <code class="id">NUMERIC_STRING</code>. Tuy nhiên, nếu so sánh bằng number thì database không còn dùng được condition này làm access predicate.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM ...
+ WHERE numeric_string = 42</code></pre></div>
+<div class="para" id="p04-u124"><p>Hãy chú ý dấu nháy bị thiếu. Dù một số database báo error (ví dụ PostgreSQL), nhiều database chỉ thêm implicit type conversion.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM ...
+ WHERE TO_NUMBER(numeric_string) = 42</code></pre></div>
+<div class="para" id="p04-u126"><p>Đây là cùng vấn đề như trước. Index trên <code class="id">NUMERIC_STRING</code> không thể dùng được do lời gọi function. Giải pháp cũng giống như trước: đừng convert table column, hãy convert search term.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM ...
+ WHERE numeric_string = TO_CHAR(42)</code></pre></div>
+<div class="para" id="p04-u128"><p>Bạn có thể thắc mắc tại sao database không tự làm theo cách này. Lý do là convert string thành number luôn cho một kết quả không mơ hồ. Chiều ngược lại thì không đúng. Một number được format thành text có thể chứa space, punctuation và leading zero. Một value có thể được viết theo nhiều cách:</p></div>
+<div class="code "><pre><code>42
+042
+0042
+00042
+...</code></pre></div>
+<div class="para" id="p04-u131"><p>Database không thể biết number format được dùng trong column <code class="id">NUMERIC_STRING</code> nên nó làm theo chiều ngược lại: database convert string thành number — đây là phép biến đổi không mơ hồ.</p></div>
+<div class="para" id="p04-u132"><p>Function <code class="id">TO_CHAR</code> chỉ trả về một string representation của number. Vì vậy, nó chỉ match string đầu tiên trong list trên. Nếu dùng <code class="id">TO_NUMBER</code>, nó match tất cả string. Điều đó có nghĩa hai biến thể không chỉ khác nhau về performance mà còn khác nhau về semantic!</p></div>
+<div class="para" id="p04-u133"><p>Dùng numeric string nhìn chung gây nhiều vấn đề: quan trọng nhất là nó gây performance problem do implicit conversion và tạo rủi ro gặp conversion error vì number không hợp lệ. Ngay cả query đơn giản nhất, không dùng function nào trong <code class="kw">where</code> clause, cũng có thể abort với conversion error nếu chỉ cần một invalid number được lưu trong table.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Dùng numeric type để lưu number.</p></aside>
+<div class="para" id="p04-u135"><p>Lưu ý rằng vấn đề không xảy ra theo chiều ngược lại:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM ...
+ WHERE numeric_number = '42'</code></pre></div>
+<div class="para" id="p04-u137"><p>Database sẽ nhất quán transform string thành number. Nó không áp dụng function lên column có thể được index, vì vậy regular index vẫn hoạt động. Tuy nhiên, bạn vẫn có thể tự convert theo cách sai:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM ...
+ WHERE TO_CHAR(numeric_number) = '42'</code></pre></div>
+<h3 id="p04-u139">Combining Columns<a class="anchor" href="#p04-u139" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p04-u140"><p>Phần này nói về một obfuscation phổ biến ảnh hưởng đến concatenated index.</p></div>
+<div class="para" id="p04-u141"><p>Ví dụ đầu tiên lại nói về date và time type nhưng theo chiều ngược lại. MySQL query sau kết hợp một date column và một time column để áp dụng range filter lên cả hai:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM ...
+ WHERE ADDTIME(date_column, time_column)
+     &gt; DATE_ADD(now(), INTERVAL -1 DAY)</code></pre></div>
+<div class="para" id="p04-u143"><p>Nó chọn mọi record trong 24 giờ vừa qua. Query không thể dùng đúng mức concatenated index trên (<code class="id">DATE_COLUMN</code>, <code class="id">TIME_COLUMN</code>) vì search không thực hiện trên các column được index mà trên derived data.</p></div>
+<div class="para" id="p04-u144"><p>Bạn có thể tránh vấn đề này bằng data type có cả date và time component (ví dụ MySQL <code class="id">DATETIME</code>). Khi đó, bạn có thể dùng column này mà không cần function call:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM ...
+ WHERE datetime_column
+     &gt; DATE_ADD(now(), INTERVAL -1 DAY)</code></pre></div>
+<div class="para" id="p04-u146"><p>Đáng tiếc là khi gặp vấn đề này, thường không thể thay đổi table.</p></div>
+<div class="para" id="p04-u147"><p>Lựa chọn tiếp theo là function-based index nếu database hỗ trợ — dù cách này có mọi drawback đã bàn trước đó. Với MySQL, function-based index vốn không phải là một option.</p></div>
+<div class="para" id="p04-u148"><p>Tuy vậy, vẫn có thể viết query để database dùng concatenated index trên <code class="id">DATE_COLUMN</code>, <code class="id">TIME_COLUMN</code> với access predicate — ít nhất là một phần. Để làm vậy, chúng ta thêm một condition vào <code class="id">DATE_COLUMN</code>.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>WHERE ADDTIME(date_column, time_column)
+    &gt; DATE_ADD(now(), INTERVAL -1 DAY)
+  AND date_column
+   &gt;= DATE(DATE_ADD(now(), INTERVAL -1 DAY))</code></pre></div>
+<div class="para" id="p04-u150"><p>Condition mới hoàn toàn redundant nhưng là một filter trực tiếp trên <code class="id">DATE_COLUMN</code> và có thể được dùng làm access predicate. Dù kỹ thuật này không hoàn hảo, nó thường là một approximation đủ tốt.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Dùng một redundant condition trên column có significance cao nhất khi một range condition kết hợp nhiều column.</p>
+<p>Với PostgreSQL, nên dùng row values syntax được mô tả ở trang 151.</p></aside>
+<div class="para" id="p04-u152"><p>Bạn cũng có thể dùng kỹ thuật này khi lưu date và time trong text column, nhưng phải dùng date format và time format tạo ra thứ tự chronological khi sort theo lexical order — ví dụ format được <code class="id">ISO</code> 8601 gợi ý (<code class="id">YYYY</code>-MM-DD HH:MM:SS). Ví dụ sau dùng function <code class="id">TO_CHAR</code> của Oracle database cho mục đích đó:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT ...
+  FROM ...
+ WHERE date_string || time_string
+     &gt; TO_CHAR(sysdate - 1, 'YYYY-MM-DD HH24:MI:SS')
+   AND date_string
+    &gt;= TO_CHAR(sysdate - 1, 'YYYY-MM-DD')</code></pre></div>
+<div class="para" id="p04-u154"><p>Chúng ta sẽ lại gặp vấn đề áp dụng range condition trên nhiều column trong phần “Paging Through Results”. Chúng ta cũng sẽ dùng cùng phương pháp approximation để giảm nhẹ vấn đề.</p></div>
+<div class="para" id="p04-u155"><p>Đôi khi chúng ta gặp trường hợp ngược lại và muốn cố ý obfuscate condition để nó không còn được dùng làm access predicate. Chúng ta đã xem vấn đề này khi bàn về ảnh hưởng của bind parameter lên <code class="id">LIKE</code> condition. Hãy xét ví dụ sau:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT last_name, first_name, employee_id
+  FROM employees
+ WHERE subsidiary_id = ?
+   AND last_name LIKE ?</code></pre></div>
+<div class="para" id="p04-u157"><p>Giả sử có một index trên <code class="id">SUBSIDIARY_ID</code> và một index khác trên <code class="id">LAST_NAME</code>, index nào tốt hơn cho query này?</p></div>
+<div class="para" id="p04-u158"><p>Không biết vị trí wildcard trong search term thì không thể đưa ra câu trả lời có cơ sở. Optimizer không còn lựa chọn nào khác ngoài việc “đoán”. Nếu biết luôn có leading wildcard, bạn có thể cố ý obfuscate <code class="id">LIKE</code> condition để optimizer không còn xem xét index trên <code class="id">LAST_NAME</code>.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT last_name, first_name, employee_id
+  FROM employees
+ WHERE subsidiary_id = ?
+   AND last_name || '' LIKE ?</code></pre></div>
+<div class="para" id="p04-u160"><p>Chỉ cần append một empty string vào column <code class="id">LAST_NAME</code>. Tuy nhiên, đây là option cuối cùng. Chỉ dùng khi thật sự cần thiết.</p></div>
+<h3 id="p04-u161">Smart Logic<a class="anchor" href="#p04-u161" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p04-u162"><p>Một trong những tính năng cốt lõi của SQL database là hỗ trợ ad-hoc query: query mới có thể được execute bất cứ lúc nào. Điều này chỉ khả thi vì query optimizer (query planner) hoạt động ở runtime; nó phân tích từng statement khi nhận được và lập tức tạo execution plan hợp lý. Bind parameter có thể giảm overhead do runtime optimization gây ra.</p></div>
+<div class="para" id="p04-u163"><p>Tóm lại, database được tối ưu cho dynamic SQL — vì vậy hãy dùng nó nếu cần.</p></div>
+<div class="para" id="p04-u164"><p>Tuy nhiên, có một practice phổ biến là tránh dynamic SQL để dùng static SQL — thường vì myth “dynamic SQL chậm”. Practice này gây hại nhiều hơn lợi nếu database dùng shared execution plan cache như <code class="id">DB2</code>, Oracle database hoặc SQL Server.</p></div>
+<div class="para" id="p04-u165"><p>Để minh họa, hãy hình dung một application query table <code class="id">EMPLOYEES</code>. Application cho phép search subsidiary id, employee id và last name (case-insensitive) theo mọi tổ hợp. Vẫn có thể viết một query duy nhất bao phủ mọi trường hợp bằng “smart” logic.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, subsidiary_id, employee_id
+  FROM employees
+ WHERE ( subsidiary_id    = :sub_id OR :sub_id IS NULL )
+   AND ( employee_id      = :emp_id OR :emp_id IS NULL )
+   AND ( UPPER(last_name) = :name OR :name IS NULL )</code></pre></div>
+<div class="para" id="p05-u003"><p>Query dùng named bind variable để dễ đọc hơn. Mọi filter expression có thể có đều được viết tĩnh trong statement. Khi không cần một filter, bạn chỉ cần dùng <code class="id">NULL</code> thay cho search term: logic OR sẽ disable condition đó.</p></div>
+<div class="para" id="p05-u004"><p>Đây là một SQL statement hoàn toàn hợp lý. Việc dùng <code class="id">NULL</code> thậm chí còn phù hợp với định nghĩa của nó theo three-valued logic của SQL. Tuy nhiên, đây lại là một trong những performance anti-pattern tệ nhất.</p></div>
+<div class="para" id="p05-u005"><p>Database không thể optimize execution plan cho một filter cụ thể vì bất kỳ filter nào cũng có thể bị hủy ở runtime. Database phải chuẩn bị cho trường hợp xấu nhất — khi tất cả filter đều bị disable:</p></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>----------------------------------------------------
+| Id | Operation         | Name      | Rows | Cost |
+----------------------------------------------------
+| 0 | SELECT STATEMENT |             |    2 | 478 |
+|* 1 | TABLE ACCESS FULL| EMPLOYEES |     2 | 478 |
+----------------------------------------------------
+Predicate Information (identified by operation id):
+---------------------------------------------------
+1 - filter((:NAME IS NULL OR UPPER("LAST_NAME")=:NAME)
+       AND (:EMP_ID IS NULL OR "EMPLOYEE_ID"=:EMP_ID)
+       AND (:SUB_ID IS NULL OR "SUBSIDIARY_ID"=:SUB_ID))</code></pre></div>
+<div class="para" id="p05-u007"><p>Vì vậy, database dùng full table scan ngay cả khi có index cho từng column.</p></div>
+<div class="para" id="p05-u008"><p>Không phải database không thể resolve “smart” logic. Database tạo generic execution plan vì bind parameter cho phép plan được cache và re-use với các value khác về sau. Nếu không dùng bind parameter mà viết actual value vào SQL statement, optimizer sẽ chọn index phù hợp cho filter đang active:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, subsidiary_id, employee_id
+  FROM employees
+ WHERE( subsidiary_id    = NULL     OR NULL IS NULL )
+   AND( employee_id      = NULL     OR NULL IS NULL )
+   AND( UPPER(last_name) = 'WINAND' OR 'WINAND' IS NULL )</code></pre></div>
+<div class="code plan"><span class="label">Execution plan</span><pre><code>---------------------------------------------------------------
+|Id | Operation                   | Name        | Rows | Cost |
+---------------------------------------------------------------
+| 0 | SELECT STATEMENT            |             |    1 |    2 |
+| 1 | TABLE ACCESS BY INDEX ROWID| EMPLOYEES |       1 |    2 |
+|*2 |   INDEX RANGE SCAN          | EMP_UP_NAME |    1 |    1 |
+---------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+  2 - access(UPPER("LAST_NAME")='WINAND')</code></pre></div>
+<div class="para" id="p05-u011"><p>Tuy nhiên, đây không phải là giải pháp. Nó chỉ chứng minh rằng database có thể resolve các condition này.</p></div>
+<aside class="callout warning "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Warning</span></p><p>Dùng literal value khiến application của bạn dễ bị SQL injection attack và có thể gây performance problem do optimization overhead tăng lên.</p></aside>
+<div class="para" id="p05-u013"><p>Giải pháp hiển nhiên cho dynamic query là dynamic SQL. Theo nguyên tắc KISS, hãy chỉ nói cho database biết bạn cần gì ngay lúc này — và không gì khác.</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT first_name, last_name, subsidiary_id, employee_id
+  FROM employees
+ WHERE UPPER(last_name) = :name</code></pre></div>
+<div class="para" id="p05-u015"><p>Lưu ý rằng query này dùng một bind parameter.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Dùng dynamic SQL nếu bạn cần dynamic <code class="kw">where</code> clause.</p>
+<p>Vẫn dùng bind parameter khi generate dynamic SQL — nếu không, myth “dynamic SQL chậm” sẽ trở thành sự thật.</p></aside>
+<div class="para" id="p05-u017"><p>Vấn đề được mô tả trong phần này rất phổ biến. Mọi database dùng shared execution plan cache đều có một feature để xử lý nó — thường lại đưa vào những problem và bug mới.</p></div>
+<div class="footnotes"><p>3 <a href="http://en.wikipedia.org/wiki/KISS_principle">http://en.wikipedia.org/wiki/KISS_principle</a></p></div>
+<h4 id="p05-u020">MySQL<a class="anchor" href="#p05-u020" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p05-u021"><p>MySQL không gặp vấn đề cụ thể này vì nó hoàn toàn không có execution plan cache. Một feature request từ năm 2009 bàn về ảnh hưởng của execution plan caching. Có vẻ optimizer của MySQL đủ đơn giản để execution plan caching không mang lại lợi ích.</p></div>
+<h4 id="p05-u022">Oracle Database<a class="anchor" href="#p05-u022" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p05-u023"><p>Oracle database dùng shared execution plan cache (“SQL area”) và hoàn toàn chịu ảnh hưởng của vấn đề được mô tả trong phần này.</p></div>
+<div class="para" id="p05-u024"><p>Oracle giới thiệu bind peeking từ release 9i. Bind peeking cho phép optimizer dùng bind value thực tế của lần execute đầu tiên khi chuẩn bị execution plan. Vấn đề của cách tiếp cận này là behavior không deterministic: value của lần execute đầu tiên ảnh hưởng đến mọi lần execute. Execution plan có thể thay đổi khi database restart hoặc, khó đoán hơn, khi cached plan hết hạn và optimizer tạo lại nó bằng các value khác vào lần statement được execute tiếp theo.</p></div>
+<div class="para" id="p05-u025"><p>Release 11g giới thiệu adaptive cursor sharing để cải thiện tình hình hơn nữa. Feature này cho phép database cache nhiều execution plan cho cùng một SQL statement. Ngoài ra, optimizer peek bind parameter và lưu estimated selectivity của chúng cùng với execution plan.</p></div>
+<div class="para" id="p05-u026"><p>Khi cache được access sau đó, selectivity của bind value hiện tại phải nằm trong các selectivity range của một cached execution plan thì plan đó mới được re-use. Nếu không, optimizer tạo execution plan mới và so sánh nó với các execution plan đã cache cho query này. Nếu đã có execution plan như vậy, database thay thế nó bằng execution plan mới cũng bao phủ các selectivity estimate của bind value hiện tại. Nếu chưa có, database cache một execution plan variant mới cho query này — dĩ nhiên kèm theo các selectivity estimate.</p></div>
+<h4 id="p05-u027">PostgreSQL<a class="anchor" href="#p05-u027" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p05-u028"><p>PostgreSQL query plan cache chỉ hoạt động với statement đang mở — tức là chừng nào bạn còn giữ PreparedStatement mở. Vấn đề được mô tả ở trên chỉ xảy ra khi re-use statement handle. Lưu ý rằng <code class="id">JDBC</code> driver của PostgresSQL chỉ enable cache sau lần execute thứ năm.</p></div>
+<h4 id="p05-u029">SQL Server<a class="anchor" href="#p05-u029" aria-label="Liên kết">#</a></h4>
+<div class="para" id="p05-u030"><p>SQL Server dùng parameter sniffing. Parameter sniffing cho phép optimizer dùng bind value thực tế của lần execute đầu tiên trong quá trình parsing. Vấn đề của cách tiếp cận này là behavior không deterministic: value của lần execute đầu tiên ảnh hưởng đến mọi lần execute. Execution plan có thể thay đổi khi database restart hoặc, khó đoán hơn, khi cached plan hết hạn và optimizer tạo lại nó bằng các value khác vào lần statement được execute tiếp theo.</p></div>
+<div class="para" id="p05-u031"><p>SQL Server 2005 bổ sung các query hint mới để kiểm soát parameter sniffing và việc recompile tốt hơn. Query hint <code class="id">RECOMPILE</code> bypass plan cache cho một statement được chọn. <code class="id">OPTIMIZE FOR</code> cho phép chỉ định các parameter value được dùng riêng cho optimization. Cuối cùng, bạn có thể cung cấp toàn bộ execution plan bằng hint <code class="id">USE PLAN</code>.</p></div>
+<div class="para" id="p05-u032"><p>Implementation ban đầu của hint <code class="id">OPTION</code>(<code class="id">RECOMPILE</code>) có một bug nên không xem xét tất cả bind variable. Implementation mới được giới thiệu trong SQL Server 2008 lại có một bug khác, khiến tình hình trở nên rất confusing. Erland Sommarskog đã tập hợp toàn bộ thông tin liên quan cho tất cả release của SQL Server.</p></div>
+<div class="footnotes"><p>4 <a href="http://www.sommarskog.se/dyn-search-2008.html">http://www.sommarskog.se/dyn-search-2008.html</a></p></div>
+<div class="para" id="p05-u034"><p>Các heuristic method có thể cải thiện vấn đề “smart logic” ở một mức độ nhất định, nhưng thực ra chúng được xây dựng để xử lý vấn đề của bind parameter liên quan đến column histogram và <code class="id">LIKE</code> expression.</p></div>
+<div class="para" id="p05-u035"><p>Phương pháp đáng tin cậy nhất để đạt được execution plan tốt nhất là tránh các filter không cần thiết trong SQL statement.</p></div>
+<h3 id="p05-u036">Math<a class="anchor" href="#p05-u036" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p05-u038"><p>Còn một nhóm obfuscation nữa cũng rất “smart” và ngăn index được sử dụng đúng. Thay vì dùng logic expression, nó dùng phép tính.</p></div>
+<div class="para" id="p05-u039"><p>Hãy xét statement sau. Nó có thể dùng index trên <code class="id">NUMERIC_NUMBER</code> không?</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT numeric_number
+  FROM table_name
+ WHERE numeric_number - 1000 &gt; ?</code></pre></div>
+<div class="para" id="p05-u041"><p>Tương tự, statement sau có thể dùng index trên A và B — bạn tự chọn thứ tự — không?</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT a, b
+  FROM table_name
+ WHERE 3*a + 5 = b</code></pre></div>
+<div class="para" id="p05-u043"><p>Hãy đặt các câu hỏi này dưới một góc nhìn khác; nếu bạn đang phát triển một SQL database, bạn có bổ sung equation solver không? Phần lớn database vendor chỉ trả lời “No!” và vì vậy, cả hai ví dụ đều không dùng được index.</p></div>
+<div class="para" id="p05-u044"><p>Bạn thậm chí có thể cố ý dùng phép toán để obfuscate một condition — như chúng ta đã làm trước đó với full text <code class="id">LIKE</code> search. Chỉ cần thêm zero là đủ, chẳng hạn:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT numeric_number
+  FROM table_name
+ WHERE numeric_number + 0 = ?</code></pre></div>
+<div class="para" id="p05-u046"><p>Tuy vậy, chúng ta có thể index các expression này bằng function-based index nếu dùng phép tính theo cách thông minh và biến <code class="kw">where</code> clause thành một phương trình:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>SELECT a, b
+  FROM table_name
+ WHERE 3*a - b = -5</code></pre></div>
+<div class="para" id="p05-u048"><p>Chúng ta chỉ chuyển các table reference sang một vế và constant sang vế còn lại. Sau đó có thể tạo function-based index cho vế trái của phương trình:</p></div>
+<div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX math ON table_name (3*a - b)</code></pre></div>
+</div>
+<nav class="pager"><a class="prev" href="chap_01.html"><small>← Trước</small>Chương 1 — Giải phẫu một Index</a><a class="next" href="chap_03.html"><small>Sau →</small>Chương 3 — Performance và Scalability</a></nav>
+</main>
+</div>
+</body>
+</html>
