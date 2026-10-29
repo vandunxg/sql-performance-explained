@@ -1,5 +1,6 @@
 {
-  "version": "1.0",
+  "version": "1.1",
+  "rule_reference": "RUE.md §3 (Nhóm A/B/C), §3.4, §3.6",
   "policy_exception": "Theo chỉ dẫn của người dùng, code blocks, SQL queries, tables và images được giữ nguyên; chỉ prose (bao gồm heading, caption, footnote và link text) được dịch.",
   "terms": {
     "SQL": "SQL",
@@ -12,6 +13,78 @@
     "row": "row",
     "table": "table",
     "join": "join",
-    "pagination": "pagination"
-  }
+    "pagination": "pagination",
+    "column": "column",
+    "entry": "entry",
+    "index entry": "index entry",
+    "node": "node",
+    "leaf node": "leaf node",
+    "branch node": "branch node",
+    "root node": "root node",
+    "pointer": "pointer",
+    "link": "link",
+    "doubly linked list": "doubly linked list",
+    "data structure": "data structure",
+    "B-tree": "B-tree",
+    "search tree": "search tree",
+    "page": "page",
+    "block": "block",
+    "heap": "heap",
+    "memory": "memory",
+    "statement": "statement",
+    "function": "function",
+    "scalability": "scalability",
+    "predicate": "predicate",
+    "selectivity": "selectivity",
+    "cardinality": "cardinality",
+    "statistics": "statistics"
+  },
+  "fixed_phrases": {
+    "_note": "Nhóm B — giữ nguyên cả cụm, không dịch từng từ.",
+    "insert statement": "insert statement",
+    "index lookup": "index lookup",
+    "tree traversal": "tree traversal",
+    "index range scan": "index range scan",
+    "full table scan": "full table scan",
+    "page split": "page split",
+    "commit transaction": "commit transaction",
+    "rollback transaction": "rollback transaction",
+    "row-level locking": "row-level locking",
+    "query optimization": "query optimization",
+    "bind parameter": "bind parameter"
+  },
+  "context_dependent_verbs": {
+    "_note": "Nhóm C — giữ English khi chỉ SQL statement/keyword, API operation, tên operation trong execution plan hoặc là một phần của fixed phrase; dùng tiếng Việt khi chỉ là động từ giải thích.",
+    "insert": "SQL/statement: insert | hành động thông thường: chèn, thêm",
+    "update": "SQL/statement: update | hành động thông thường: cập nhật",
+    "delete": "SQL/statement: delete | hành động thông thường: xóa",
+    "refer to / reference": "trỏ tới, tham chiếu tới",
+    "access": "truy cập; giữ 'access' trong tên operation (TABLE ACCESS BY INDEX ROWID) hoặc 'access path'/'access predicate'",
+    "traverse": "duyệt; giữ 'tree traversal' khi là bước của index lookup",
+    "match": "khớp",
+    "load": "tải, load (danh từ: 'load' của system/CPU)",
+    "execute": "thực thi, chạy",
+    "maintain": "duy trì",
+    "retrieve": "lấy, đọc"
+  },
+  "keep_vietnamese": [
+    "giá trị",
+    "cơ chế",
+    "phân phối",
+    "điều kiện",
+    "ước lượng",
+    "thứ tự"
+  ],
+  "distinct_concepts": [
+    ["row", "tuple", "record"],
+    ["leaf node", "index entry", "page/block"],
+    ["link", "pointer"],
+    ["selectivity", "cardinality"],
+    ["predicate", "filter"],
+    ["estimated cost", "execution time"],
+    ["index scan", "index-only scan"],
+    ["estimated rows", "actual rows"],
+    ["logical I/O", "physical I/O"],
+    ["reserve", "deduct"]
+  ]
 }

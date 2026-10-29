@@ -22,24 +22,24 @@ var s=parseFloat(localStorage.getItem("spe-scale"));if(s)document.documentElemen
   <button id="theme-btn" type="button" aria-label="Đổi giao diện">◐</button>
 </header>
 <div class="layout">
-<nav class="sidebar-toc" aria-label="Mục lục chương"><h2>Trong chương này</h2><ol><li class="l1"><a href="#p05-u130">Chương 4: The Join Operation</a></li><li class="l2"><a href="#p05-u137">Pipelining Intermediate Results</a></li><li class="l2"><a href="#p05-u139">Nested Loops</a></li><li class="l3"><a href="#p06-u013">Enabling SQL Logging</a></li><li class="l2"><a href="#p06-u034">Nested Loops</a></li><li class="l2"><a href="#p06-u065">Hash Join</a></li><li class="l2"><a href="#p06-u128">Sort Merge</a></li></ol></nav>
+<nav class="sidebar-toc" aria-label="Mục lục chương"><h2>Trong chương này</h2><ol><li class="l1"><a href="#p05-u130">Chương 4: Join Operation</a></li><li class="l2"><a href="#p05-u137">Pipelining Intermediate Result</a></li><li class="l2"><a href="#p05-u139">Nested Loops</a></li><li class="l3"><a href="#p06-u013">Bật SQL Logging</a></li><li class="l2"><a href="#p06-u034">Nested Loops</a></li><li class="l2"><a href="#p06-u065">Hash Join</a></li><li class="l2"><a href="#p06-u128">Sort Merge</a></li></ol></nav>
 <main class="book"><div class="prose">
-<header class="chapter-head" id="p05-u130"><p class="eyebrow">Chương 4</p><h1>The Join Operation</h1></header>
+<header class="chapter-head" id="p05-u130"><p class="eyebrow">Chương 4</p><h1>Join Operation</h1></header>
 <blockquote><p>Một SQL query bước vào bar và nhìn thấy hai table.</p>
 <p>Nó bước đến gần và hỏi: “Tôi join cùng các bạn được không?”</p>
-<p>—Source: Unknown</p></blockquote>
-<div class="para" id="p05-u133"><p>Join operation biến đổi data từ normalized model thành dạng denormalized phù hợp với một processing purpose cụ thể. Join đặc biệt nhạy cảm với disk seek latency vì nó kết hợp các data fragment nằm rải rác. Indexing đúng cách một lần nữa là giải pháp tốt nhất để giảm response time. Tuy nhiên, index đúng phụ thuộc vào việc query dùng algorithm nào trong ba join algorithm phổ biến.</p></div>
-<div class="para" id="p05-u134"><p>Tuy nhiên, có một điểm chung cho mọi join algorithm: chúng chỉ xử lý hai table mỗi lần. SQL query có nhiều table cần nhiều bước: trước tiên xây dựng một intermediate result set bằng cách join hai table, sau đó join result với table tiếp theo, cứ như vậy.</p></div>
-<div class="para" id="p05-u135"><p>Dù join order không ảnh hưởng đến final result, nó vẫn ảnh hưởng đến performance. Vì vậy optimizer sẽ đánh giá mọi permutation có thể của join order và chọn permutation tốt nhất. Điều đó có nghĩa chỉ riêng việc optimize một complex statement cũng có thể trở thành performance problem. Càng có nhiều table cần join, càng có nhiều execution plan variant phải đánh giá — nói theo toán học là n! (factorial growth), dù đây không phải vấn đề khi dùng bind parameter.</p></div>
-<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Statement càng complex thì việc dùng bind parameter càng quan trọng.</p>
-<p>Không dùng bind parameter cũng giống như recompile một program mỗi lần.</p></aside>
-<h2 id="p05-u137">Pipelining Intermediate Results<a class="anchor" href="#p05-u137" aria-label="Liên kết">#</a></h2>
-<div class="para" id="p05-u138"><p>Dù intermediate result giải thích algorithm rất rõ, điều đó không có nghĩa database phải materialize nó. Nếu vậy, database phải lưu intermediate result của join đầu tiên trước khi bắt đầu join tiếp theo. Thay vào đó, database dùng pipelining để giảm memory usage. Nghĩa là mỗi row của intermediate result được pipeline ngay lập tức sang join operation tiếp theo — tránh phải lưu intermediate result set.</p></div>
+<p>—Nguồn: Không rõ</p></blockquote>
+<div class="para" id="p05-u133"><p>Join operation biến đổi dữ liệu từ normalized model sang một dạng denormalized, phù hợp với một mục đích xử lý cụ thể. Join đặc biệt nhạy cảm với disk seek latency, vì nó kết hợp các mảnh dữ liệu nằm rải rác. Một lần nữa, đánh index đúng cách là giải pháp tốt nhất để giảm response time. Tuy nhiên, index nào là đúng còn phụ thuộc vào việc query dùng join algorithm nào trong ba join algorithm phổ biến.</p></div>
+<div class="para" id="p05-u134"><p>Dù vậy, mọi join algorithm đều có một điểm chung: mỗi lần chúng chỉ xử lý hai table. Một SQL query có nhiều table hơn sẽ cần nhiều bước: trước tiên join hai table để tạo một intermediate result set, sau đó join result này với table tiếp theo, và cứ thế tiếp tục.</p></div>
+<div class="para" id="p05-u135"><p>Join order không ảnh hưởng đến kết quả cuối cùng, nhưng vẫn ảnh hưởng đến performance. Vì vậy, optimizer sẽ đánh giá mọi hoán vị có thể có của join order rồi chọn ra hoán vị tốt nhất. Nói cách khác, chỉ riêng việc optimize một statement phức tạp cũng có thể trở thành vấn đề về performance. Càng nhiều table cần join thì càng có nhiều biến thể execution plan phải đánh giá — nói theo toán học là n! (tăng theo giai thừa), dù điều này không thành vấn đề khi dùng bind parameter.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Quan trọng</span></p><p>Statement càng phức tạp thì dùng bind parameter càng quan trọng.</p>
+<p>Không dùng bind parameter chẳng khác gì lần nào cũng compile lại program.</p></aside>
+<h2 id="p05-u137">Pipelining Intermediate Result<a class="anchor" href="#p05-u137" aria-label="Liên kết">#</a></h2>
+<div class="para" id="p05-u138"><p>Intermediate result giúp giải thích algorithm rất rõ, nhưng điều đó không có nghĩa là database phải materialize nó. Materialize đồng nghĩa với việc phải lưu intermediate result của join đầu tiên trước khi bắt đầu join tiếp theo. Thay vào đó, database dùng pipelining để giảm memory usage. Tức là mỗi row của intermediate result được pipeline ngay sang join operation tiếp theo, nhờ đó không cần lưu lại intermediate result set.</p></div>
 <h2 id="p05-u139">Nested Loops<a class="anchor" href="#p05-u139" aria-label="Liên kết">#</a></h2>
-<div class="para" id="p05-u140"><p>Nested loops join là join algorithm nền tảng nhất. Nó hoạt động giống như dùng hai nested query: outer hoặc driving query fetch result từ một table, rồi một query thứ hai cho mỗi row của driving query fetch data tương ứng từ table còn lại.</p></div>
-<div class="para" id="p05-u141"><p>Bạn thực sự có thể tự dùng “nested select” để implement nested loops algorithm. Tuy nhiên, đó là cách tiếp cận rắc rối vì network latency xuất hiện chồng lên disk latency — khiến overall response time còn tệ hơn. “Nested select” vẫn rất phổ biến vì dễ implement mà không nhận ra mình đang làm vậy. Object-relational mapping (<code class="id">ORM</code>) tool đặc biệt “helpful” ở điểm này… đến mức cái gọi là N+1 selects problem đã trở nên tai tiếng trong lĩnh vực này.</p></div>
-<div class="para" id="p05-u142"><p>Các ví dụ sau cho thấy những join “accidental nested select” được tạo ra bởi các <code class="id">ORM</code> tool khác nhau. Các ví dụ search employee có last name bắt đầu bằng '<code class="id">WIN</code>' và fetch toàn bộ <code class="id">SALES</code> của những employee đó.</p></div>
-<div class="para" id="p05-u143"><p><code class="id">ORM</code> không generate SQL join — thay vào đó chúng query table <code class="id">SALES</code> bằng nested select. Hiệu ứng này được gọi là “N+1 selects problem”, hoặc ngắn hơn là “N+1 problem”, vì tổng cộng nó execute N+1 select nếu driving query trả về N row.</p></div>
+<div class="para" id="p05-u140"><p>Nested loops join là join algorithm cơ bản nhất. Nó hoạt động giống như dùng hai query lồng nhau: outer query (hay driving query) lấy kết quả từ một table, còn query thứ hai chạy cho từng row của driving query để lấy dữ liệu tương ứng từ table còn lại.</p></div>
+<div class="para" id="p05-u141"><p>Thực ra, bạn hoàn toàn có thể tự dùng “nested select” để implement nested loops algorithm. Tuy nhiên, đó là cách làm rắc rối, vì network latency cộng dồn lên disk latency, khiến tổng response time còn tệ hơn. “Nested select” vẫn rất phổ biến, vì người ta dễ implement chúng mà không hề nhận ra. Object-relational mapping (<code class="id">ORM</code>) tool đặc biệt “helpful” ở điểm này… đến mức cái gọi là N+1 selects problem đã trở nên tai tiếng trong giới làm nghề.</p></div>
+<div class="para" id="p05-u142"><p>Các ví dụ sau cho thấy những join kiểu “accidental nested select” do các <code class="id">ORM</code> tool khác nhau sinh ra. Các ví dụ này tìm những employee có last name bắt đầu bằng '<code class="id">WIN</code>' và lấy toàn bộ <code class="id">SALES</code> của các employee đó.</p></div>
+<div class="para" id="p05-u143"><p>Các <code class="id">ORM</code> này không sinh ra SQL join mà query table <code class="id">SALES</code> bằng các nested select. Hiện tượng này được gọi là “N+1 selects problem”, hay ngắn gọn là “N+1 problem”, vì nếu driving query trả về N row thì tổng cộng sẽ có N+1 select được thực thi.</p></div>
 <h4 id="p05-u144">Java<a class="anchor" href="#p05-u144" aria-label="Liên kết">#</a></h4>
 <div class="para" id="p05-u145"><p>Ví dụ <code class="id">JPA</code> dùng interface CriteriaBuilder.</p></div>
 <div class="code "><pre><code>CriteriaBuilder queryBuilder = em.getCriteriaBuilder();
@@ -60,7 +60,7 @@ for (Employees e: emp) {
     // process sale for Employee
   }
 }</code></pre></div>
-<div class="para" id="p05-u147"><p>Hibernate <code class="id">JPA</code> 3.6.0 generate N+1 select query:</p></div>
+<div class="para" id="p05-u147"><p>Hibernate <code class="id">JPA</code> 3.6.0 sinh ra N+1 select query:</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>select employees0_.subsidiary_id as subsidiary1_0_
        -- MORE COLUMNS
   from employees employees0_
@@ -83,12 +83,12 @@ for (Employees e: emp) {
           -&gt;search({'UPPER(last_name)' =&gt; {-like=&gt;'WIN%'}});
 
 foreach my $employee (@employees) {
-    process Employee
+   // process Employee
    foreach my $sale ($employee-&gt;sales) {
-       process Sale for Employee
+      // process Sale for Employee
    }
 }</code></pre></div>
-<div class="para" id="p06-u005"><p>DBIx::Class 0.08192 generate các query select N+1:</p></div>
+<div class="para" id="p06-u005"><p>DBIx::Class 0.08192 sinh ra N+1 select query:</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>SELECT me.employee_id, me.subsidiary_id
      , me.last_name, me.first_name, me.date_of_birth
   FROM employees me
@@ -120,7 +120,7 @@ foreach ($r as $row) {
       // process Sale for Employee
    }
 }</code></pre></div>
-<div class="para" id="p06-u011"><p>Doctrine 2.0.5 generate các query select N+1:</p></div>
+<div class="para" id="p06-u011"><p>Doctrine 2.0.5 sinh ra N+1 select query:</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>SELECT e0_.employee_id AS employee_id0 -- MORE COLUMNS
   FROM employees e0_
  WHERE UPPER(e0_.last_name) LIKE ?
@@ -134,12 +134,12 @@ foreach ($r as $row) {
        FROM sales t0
       WHERE t0.subsidiary_id = ?
         AND t0.employee_id = ?</code></pre></div>
-<h3 id="p06-u013">Enabling SQL Logging<a class="anchor" href="#p06-u013" aria-label="Liên kết">#</a></h3>
-<div class="para" id="p06-u014"><p>Bật SQL logging trong quá trình development và review các SQL statement được generate.</p></div>
+<h3 id="p06-u013">Bật SQL Logging<a class="anchor" href="#p06-u013" aria-label="Liên kết">#</a></h3>
+<div class="para" id="p06-u014"><p>Hãy bật SQL logging trong lúc development và review các SQL statement được sinh ra.</p></div>
 <h4 id="p06-u015">DBIx::Class<a class="anchor" href="#p06-u015" aria-label="Liên kết">#</a></h4>
 <div class="code terminal"><span class="label">Terminal</span><pre><code>export DBIC_TRACE=1 in your shell.</code></pre></div>
 <h4 id="p06-u017">Doctrine<a class="anchor" href="#p06-u017" aria-label="Liên kết">#</a></h4>
-<div class="para" id="p06-u018"><p>Chỉ thực hiện ở source code level — đừng quên disable setting này trong production. Hãy cân nhắc việc tự xây dựng một configurable logger.</p></div>
+<div class="para" id="p06-u018"><p>Chỉ cấu hình SQL logging ở source code — đừng quên tắt nó khi chạy production. Hãy cân nhắc tự xây dựng một logger có thể cấu hình được.</p></div>
 <div class="code "><pre><code>$logger = new \Doctrine\DBAL\Logging\EchoSqlLogger;
 $config-&gt;setSQLLogger($logger);</code></pre></div>
 <h4 id="p06-u020">Hibernate (native)<a class="anchor" href="#p06-u020" aria-label="Liên kết">#</a></h4>
@@ -150,20 +150,20 @@ hibernate.cfg.xml</code></pre></div>
 <div class="code "><pre><code>&lt;property name="eclipselink.logging.level" value="FINE"/&gt;
 &lt;property name="hibernate.show_sql" value="TRUE"/&gt;
 &lt;property name="openjpa.Log" value="SQL=TRACE"/&gt;</code></pre></div>
-<div class="para" id="p06-u025"><p>Hầu hết <code class="id">ORM</code> cũng cung cấp cách programmatic để enable SQL logging. Cách này có rủi ro vô tình deploy setting đó lên production.</p></div>
-<div class="para" id="p06-u027"><p>Dù cách tiếp cận “nested selects” là một anti-pattern, nó vẫn giải thích khá rõ nested loops join. Database execute join chính xác như các <code class="id">ORM</code> tool ở trên. Vì vậy, indexing cho nested loops join cũng giống như indexing cho các select statement đã trình bày ở trên. Đó là function-based index trên table <code class="id">EMPLOYEES</code> và concatenated index cho các join predicate trên table <code class="id">SALES</code>:</p></div>
+<div class="para" id="p06-u025"><p>Hầu hết <code class="id">ORM</code> cũng cho phép bật SQL logging bằng code. Cách này đi kèm rủi ro vô tình deploy setting đó lên production.</p></div>
+<div class="para" id="p06-u027"><p>Dù là một anti-pattern, cách tiếp cận “nested selects” vẫn giúp giải thích nested loops join khá rõ. Database thực thi join đúng theo cách các <code class="id">ORM</code> tool ở trên đã làm. Vì vậy, đánh index cho nested loops join cũng giống như đánh index cho các select statement đã trình bày ở trên. Cụ thể là một function-based index trên table <code class="id">EMPLOYEES</code> và một concatenated index cho các join predicate trên table <code class="id">SALES</code>:</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX emp_up_name ON employees (UPPER(last_name));
 CREATE INDEX sales_emp ON sales (subsidiary_id, employee_id);</code></pre></div>
-<div class="para" id="p06-u029"><p>SQL join vẫn hiệu quả hơn cách tiếp cận nested selects — dù thực hiện cùng các index lookup — vì nó tránh được nhiều network communication. Nó thậm chí còn nhanh hơn khi tổng lượng data truyền đi lớn hơn do employee attribute bị lặp lại cho mỗi sale. Đó là vì performance có hai dimension: response time và throughput; trong computer network, chúng ta gọi chúng là latency và bandwidth. Bandwidth chỉ tác động nhỏ đến response time, còn latency có tác động rất lớn. Vì vậy, số database round trip quan trọng đối với response time hơn lượng data được truyền.</p></div>
-<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Execute join trong database.</p></aside>
-<div class="para" id="p06-u031"><p>Hầu hết <code class="id">ORM</code> tool đều có cách tạo SQL join. Chế độ gọi là eager fetching có lẽ là cách quan trọng nhất. Nó thường được cấu hình ở property level trong entity mapping — ví dụ property employees trong class Sales. Khi đó <code class="id">ORM</code> tool sẽ luôn join table <code class="id">EMPLOYEES</code> khi access table <code class="id">SALES</code>. Cấu hình eager fetching trong entity mapping chỉ hợp lý nếu lúc nào bạn cũng cần employee detail cùng với sales data.</p></div>
-<div class="para" id="p06-u032"><p>Eager fetching phản tác dụng nếu bạn không cần child record mỗi lần access parent object. Với application dạng telephone directory, load record <code class="id">SALES</code> khi hiển thị employee detail là không hợp lý. Bạn có thể cần sales data liên quan trong những trường hợp khác — nhưng không phải lúc nào cũng cần. Static configuration không giải quyết được vấn đề.</p></div>
-<div class="para" id="p06-u033"><p>Để đạt performance tối ưu, bạn cần toàn quyền kiểm soát join. Các ví dụ sau cho thấy cách có được mức flexibility cao nhất bằng cách kiểm soát join behavior tại runtime.</p></div>
+<div class="para" id="p06-u029"><p>SQL join vẫn hiệu quả hơn cách tiếp cận nested selects — dù thực hiện cùng các index lookup — vì nó tránh được rất nhiều network communication. SQL join vẫn nhanh hơn ngay cả khi tổng lượng dữ liệu truyền đi lớn hơn, do các attribute của employee bị lặp lại ở mỗi sale. Lý do nằm ở hai chiều của performance: response time và throughput; trong computer network, ta gọi chúng là latency và bandwidth. Bandwidth chỉ ảnh hưởng nhỏ đến response time, còn latency thì ảnh hưởng rất lớn. Vì vậy, với response time, số database round trip quan trọng hơn lượng dữ liệu được truyền.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Hãy thực hiện join trong database.</p></aside>
+<div class="para" id="p06-u031"><p>Hầu hết <code class="id">ORM</code> tool đều có cách nào đó để tạo SQL join. Quan trọng nhất có lẽ là chế độ được gọi là eager fetching. Chế độ này thường được cấu hình ở mức property trong entity mapping — ví dụ cho property employees trong class Sales. Khi đó, mỗi lần truy cập table <code class="id">SALES</code>, <code class="id">ORM</code> tool sẽ luôn join table <code class="id">EMPLOYEES</code>. Chỉ nên cấu hình eager fetching trong entity mapping nếu lúc nào bạn cũng cần thông tin chi tiết của employee đi kèm dữ liệu sales.</p></div>
+<div class="para" id="p06-u032"><p>Eager fetching phản tác dụng nếu bạn không cần các child record mỗi lần truy cập parent object. Với một application kiểu danh bạ điện thoại, việc tải các record <code class="id">SALES</code> khi hiển thị thông tin chi tiết của employee là không hợp lý. Trong những trường hợp khác, bạn có thể cần dữ liệu sales liên quan — nhưng không phải lúc nào cũng cần. Cấu hình tĩnh không phải là giải pháp.</p></div>
+<div class="para" id="p06-u033"><p>Để đạt performance tối ưu, bạn cần kiểm soát hoàn toàn các join. Các ví dụ sau cho thấy cách đạt độ linh hoạt cao nhất bằng cách kiểm soát cách join tại runtime.</p></div>
 <h2 id="p06-u034">Nested Loops<a class="anchor" href="#p06-u034" aria-label="Liên kết">#</a></h2>
 <h4 id="p06-u035">Java<a class="anchor" href="#p06-u035" aria-label="Liên kết">#</a></h4>
-<div class="para" id="p06-u036"><p>Interface <code class="id">JPA</code> CriteriaBuilder cung cấp method Root&lt;&gt;.fetch() để kiểm soát join. Method này cho phép bạn chỉ định thời điểm và cách join các object được reference vào main query. Trong ví dụ này, chúng ta dùng left join để lấy tất cả employee, kể cả những employee không có sale.</p></div>
-<aside class="callout warning "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Warning</span></p><p><code class="id">JPA</code> và Hibernate trả về employee cho mỗi sale.</p>
-<p>Điều đó có nghĩa một employee có 30 sale sẽ xuất hiện 30 lần. Dù rất khó chịu, đây là behavior được quy định (<code class="id">EJB</code> 3.0 persistency, paragraph 4.4.5.3 “Fetch Joins”). Bạn có thể tự de-duplicate parent relation hoặc dùng function distinct() như trong ví dụ.</p></aside>
+<div class="para" id="p06-u036"><p>Interface <code class="id">JPA</code> CriteriaBuilder cung cấp method Root&lt;&gt;.fetch() để kiểm soát join. Method này cho phép bạn chỉ định thời điểm và cách join các object được tham chiếu vào main query. Trong ví dụ này, chúng ta dùng left join để lấy tất cả employee, kể cả những employee không có sale.</p></div>
+<aside class="callout warning "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Cảnh báo</span></p><p><code class="id">JPA</code> và Hibernate trả về employee cho mỗi sale.</p>
+<p>Nghĩa là một employee có 30 sale sẽ xuất hiện 30 lần. Dù rất khó chịu, đây lại chính là behavior đã được đặc tả (<code class="id">EJB</code> 3.0 persistency, paragraph 4.4.5.3 “Fetch Joins”). Bạn có thể tự loại bỏ phần trùng lặp ở parent relation, hoặc dùng function distinct() như trong ví dụ.</p></aside>
 <div class="code "><pre><code>CriteriaBuilder qb = em.getCriteriaBuilder();
 CriteriaQuery&lt;Employees&gt; q = qb.createQuery(Employees.class);
 Root&lt;Employees&gt; r = q.from(Employees.class);
@@ -175,7 +175,7 @@ r.fetch("sales", JoinType.LEFT);
 // needed to avoid duplication of Employee records
 query.distinct(true);
 List&lt;Employees&gt; emp = em.createQuery(query).getResultList();</code></pre></div>
-<div class="para" id="p06-u039"><p>Hibernate 3.6.0 generate SQL statement sau:</p></div>
+<div class="para" id="p06-u039"><p>Hibernate 3.6.0 sinh ra SQL statement sau:</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>select distinct
        employees0_.subsidiary_id as subsidiary1_0_0_
      , employees0_.employee_id as employee2_0_0_
@@ -186,15 +186,15 @@ List&lt;Employees&gt; emp = em.createQuery(query).getResultList();</code></pre><
           on employees0_.subsidiary_id=sales1_.subsidiary_id
          and employees0_.employee_id=sales1_.employee_id
  where upper(employees0_.last_name) like ?</code></pre></div>
-<div class="para" id="p06-u041"><p>Query có left join như kỳ vọng nhưng cũng có keyword distinct không cần thiết. Đáng tiếc là <code class="id">JPA</code> không cung cấp API call riêng để filter các parent entry bị duplicate mà không de-duplicate cả child record tương tự.</p></div>
-<div class="para" id="p06-u044"><p>Keyword distinct trong SQL query đáng lo vì hầu hết database sẽ thực sự filter các duplicate record. Chỉ một số ít database nhận biết rằng primary key vốn đã bảo đảm tính unique trong trường hợp này.</p></div>
+<div class="para" id="p06-u041"><p>Query có left join như mong đợi, nhưng cũng có thêm keyword distinct không cần thiết. Đáng tiếc là <code class="id">JPA</code> không có API call riêng để lọc các parent entry bị trùng mà không đồng thời loại bỏ trùng lặp ở các child record.</p></div>
+<div class="para" id="p06-u044"><p>Keyword distinct trong SQL query là dấu hiệu đáng lo, vì hầu hết database sẽ thực sự lọc các record trùng lặp. Chỉ một số ít database nhận ra rằng trong trường hợp này, primary key vốn đã bảo đảm tính unique. Native Hibernate API giải quyết vấn đề này ở phía client bằng một result set transformer:</p></div>
 <div class="code "><pre><code>Criteria c = session.createCriteria(Employees.class);
 c.add(Restrictions.ilike("lastName", 'Win%'));
 c.setFetchMode("sales", FetchMode.JOIN);
 c.setResultTransformer(Criteria.DISTINCT_ROOT_ENTITY);
 
 List&lt;Employees&gt; result = c.list();</code></pre></div>
-<div class="para" id="p06-u046"><p>Nó generate query sau:</p></div>
+<div class="para" id="p06-u046"><p>Cách này sinh ra query sau:</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>select this_.subsidiary_id as subsidiary1_0_1_
      , this_.employee_id as employee2_0_1_
        -- MORE this_ columns on employees
@@ -205,7 +205,7 @@ List&lt;Employees&gt; result = c.list();</code></pre></div>
           on this_.subsidiary_id=sales2_.subsidiary_id
          and this_.employee_id=sales2_.employee_id
  where lower(this_.last_name) like ?</code></pre></div>
-<div class="para" id="p06-u048"><p>Method này tạo ra SQL trực tiếp mà không có clause ngoài ý muốn. Lưu ý rằng Hibernate dùng lower() cho case-insensitive query — một chi tiết quan trọng đối với function-based indexing.</p></div>
+<div class="para" id="p06-u048"><p>Cách này tạo ra SQL gọn gàng, không có clause nào ngoài ý muốn. Lưu ý rằng Hibernate dùng lower() cho các query không phân biệt hoa thường — một chi tiết quan trọng khi làm function-based indexing.</p></div>
 <h4 id="p06-u050">Perl<a class="anchor" href="#p06-u050" aria-label="Liên kết">#</a></h4>
 <div class="para" id="p06-u051"><p>Ví dụ sau dùng framework DBIx::Class của Perl:</p></div>
 <div class="code "><pre><code>my @employees =
@@ -213,7 +213,7 @@ List&lt;Employees&gt; result = c.list();</code></pre></div>
           -&gt;search({ 'UPPER(last_name)' =&gt; {-like =&gt; 'WIN%'}
                    , {prefetch =&gt; ['sales']}
                    });</code></pre></div>
-<div class="para" id="p06-u053"><p>DBIx::Class 0.08192 generate SQL statement sau:</p></div>
+<div class="para" id="p06-u053"><p>DBIx::Class 0.08192 sinh ra SQL statement sau:</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>SELECT me.employee_id, me.subsidiary_id, me.last_name
        -- MORE COLUMNS
   FROM employees me
@@ -221,7 +221,8 @@ List&lt;Employees&gt; result = c.list();</code></pre></div>
          ON (sales.employee_id = me.employee_id
         AND sales.subsidiary_id = me.subsidiary_id)
  WHERE ( UPPER(last_name) LIKE ? )
- ORDER BY sales.employee_id, sales.subsidiary_id</code></pre></div>
+  ORDER BY sales.employee_id, sales.subsidiary_id</code></pre></div>
+<div class="para" id="p06-u054"><p>Lưu ý <code class="id">order by</code> clause này không do application yêu cầu. Database phải sort result set theo đó, và việc này có thể mất một lúc.</p></div>
 <h4 id="p06-u055"><code class="id">PHP</code><a class="anchor" href="#p06-u055" aria-label="Liên kết">#</a></h4>
 <div class="para" id="p06-u056"><p>Ví dụ sau dùng framework Doctrine của <code class="id">PHP</code>:</p></div>
 <div class="code "><pre><code>$qb = $em-&gt;createQueryBuilder();
@@ -231,7 +232,7 @@ $qb-&gt;select('e,s')
    -&gt;where("upper(e.last_name) like :last_name")
    -&gt;setParameter('last_name', 'WIN%');
 $r = $qb-&gt;getQuery()-&gt;getResult();</code></pre></div>
-<div class="para" id="p06-u058"><p>Doctrine 2.0.5 generate SQL statement sau:</p></div>
+<div class="para" id="p06-u058"><p>Doctrine 2.0.5 sinh ra SQL statement sau:</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>SELECT e0_.employee_id AS employee_id0
        -- MORE COLUMNS
   FROM employees e0_
@@ -256,20 +257,20 @@ Predicate Information (identified by operation id):
       filter(UPPER("LAST_NAME") LIKE 'WIN%')
   5 - access("E0_"."SUBSIDIARY_ID"="S1_"."SUBSIDIARY_ID"(+)
         AND "E0_"."EMPLOYEE_ID" ="S1_"."EMPLOYEE_ID"(+))</code></pre></div>
-<div class="para" id="p06-u062"><p>Database trước tiên lấy result từ table <code class="id">EMPLOYEES</code> thông qua <code class="id">EMP_UP_NAME</code>, sau đó fetch các record tương ứng từ table <code class="id">SALES</code> cho từng employee.</p></div>
-<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Hiểu <code class="id">ORM</code> của bạn và kiểm soát join.</p></aside>
-<div class="para" id="p06-u064"><p>Nested loops join cho performance tốt nếu driving query trả về một result set nhỏ. Nếu không, optimizer có thể chọn một join algorithm hoàn toàn khác — chẳng hạn hash join được mô tả trong section tiếp theo, nhưng chỉ khi application dùng join để nói cho database biết chính xác cần data nào.</p></div>
+<div class="para" id="p06-u062"><p>Trước tiên, database lấy kết quả từ table <code class="id">EMPLOYEES</code> thông qua <code class="id">EMP_UP_NAME</code>, sau đó lấy các record tương ứng từ table <code class="id">SALES</code> cho từng employee.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Hãy hiểu rõ <code class="id">ORM</code> của bạn và nắm quyền kiểm soát join.</p></aside>
+<div class="para" id="p06-u064"><p>Nested loops join cho performance tốt nếu driving query trả về một result set nhỏ. Nếu không, optimizer có thể chọn một join algorithm hoàn toàn khác — chẳng hạn hash join được mô tả ở section tiếp theo. Tuy nhiên, điều này chỉ khả thi khi application dùng join để cho database biết application thực sự cần dữ liệu nào.</p></div>
 <h2 id="p06-u065">Hash Join<a class="anchor" href="#p06-u065" aria-label="Liên kết">#</a></h2>
-<div class="para" id="p06-u067"><p>Hash join algorithm nhắm vào điểm yếu của nested loops join: nhiều lần B-tree traversal khi execute inner query. Thay vào đó, nó load các candidate record từ một phía của join vào hash table, để mỗi row từ phía còn lại có thể probe rất nhanh. Tuning hash join đòi hỏi indexing approach hoàn toàn khác nested loops join. Ngoài ra, có thể cải thiện performance của hash join bằng cách select ít column hơn — một thách thức đối với hầu hết <code class="id">ORM</code> tool.</p></div>
+<div class="para" id="p06-u067"><p>Hash join algorithm nhắm vào điểm yếu của nested loops join: rất nhiều lần B-tree traversal khi thực thi inner query. Thay vào đó, hash join load các candidate record từ một phía của join vào một hash table; hash table này có thể được probe rất nhanh cho từng row từ phía còn lại. Tuning hash join đòi hỏi một cách đánh index hoàn toàn khác so với nested loops join. Ngoài ra, cũng có thể cải thiện performance của hash join bằng cách select ít column hơn — một thách thức với hầu hết <code class="id">ORM</code> tool.</p></div>
 <div class="para" id="p06-u068"><p>Indexing strategy cho hash join rất khác vì không cần index các join column. Chỉ index cho các independent <code class="kw">where</code> predicate mới cải thiện performance của hash join.</p></div>
-<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Index các independent <code class="kw">where</code> predicate để cải thiện performance của hash join.</p></aside>
-<div class="para" id="p06-u070"><p>Xét ví dụ sau. Nó select toàn bộ sale trong sáu tháng vừa qua cùng employee detail tương ứng:</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Index các independent <code class="kw">where</code> predicate để cải thiện performance của hash join.</p></aside>
+<div class="para" id="p06-u070"><p>Xét ví dụ sau. Query này select toàn bộ sale trong sáu tháng gần nhất cùng thông tin chi tiết của employee tương ứng:</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>SELECT *
   FROM sales s
   JOIN employees e ON (s.subsidiary_id = e.subsidiary_id
                   AND s.employee_id = e.employee_id )
  WHERE s.sale_date &gt; trunc(sysdate) - INTERVAL '6' MONTH</code></pre></div>
-<div class="para" id="p06-u072"><p>Filter <code class="id">SALE_DATE</code> là <code class="kw">where</code> clause độc lập duy nhất — nghĩa là nó chỉ reference đến một table và không thuộc join predicate.</p></div>
+<div class="para" id="p06-u072"><p>Filter <code class="id">SALE_DATE</code> là <code class="kw">where</code> clause độc lập duy nhất — nghĩa là nó chỉ tham chiếu đến một table và không thuộc join predicate.</p></div>
 <div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
 | Id | Operation          | Name      | Rows | Bytes | Cost |
 --------------------------------------------------------------
@@ -285,12 +286,12 @@ Predicate Information (identified by operation id):
           AND "S"."EMPLOYEE_ID" ="E"."EMPLOYEE_ID")
    3 - filter("S"."SALE_DATE"&gt;TRUNC(SYSDATE@!)
                            -INTERVAL'+00-06' YEAR(2) TO MONTH)</code></pre></div>
-<div class="para" id="p06-u075"><p>Bước execute đầu tiên là full table scan để load toàn bộ employee vào hash table (plan id 2). Hash table dùng join predicate làm key. Ở bước tiếp theo, database lại full table scan table <code class="id">SALES</code> và loại bỏ các sale không thỏa điều kiện <code class="id">SALE_DATE</code> (plan id 3). Với những <code class="id">SALES</code> record còn lại, database access hash table để load employee detail tương ứng.</p></div>
-<div class="para" id="p06-u076"><p>Mục đích duy nhất của hash table là làm temporary in-memory structure để tránh access table <code class="id">EMPLOYEE</code> nhiều lần. Hash table được load một lần nên không cần index để fetch từng record hiệu quả. Predicate information xác nhận không có filter nào được áp dụng trên table <code class="id">EMPLOYEES</code> (plan id 2). Query không có independent predicate nào trên table này.</p></div>
-<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Important</span></p><p>Indexing join predicate không cải thiện performance của hash join.</p></aside>
-<div class="para" id="p06-u078"><p>Điều đó không có nghĩa là không thể index hash join. Independent predicate có thể được index. Đây là các condition được áp dụng trong một trong hai table access operation. Trong ví dụ trên, đó là filter trên <code class="id">SALE_DATE</code>.</p></div>
+<div class="para" id="p06-u075"><p>Bước thực thi đầu tiên là một full table scan để load toàn bộ employee vào hash table (plan id 2). Hash table dùng join predicate làm key. Ở bước tiếp theo, database thực hiện thêm một full table scan trên table <code class="id">SALES</code> và loại bỏ các sale không thỏa điều kiện trên <code class="id">SALE_DATE</code> (plan id 3). Với những record <code class="id">SALES</code> còn lại, database truy cập hash table để lấy thông tin chi tiết của employee tương ứng.</p></div>
+<div class="para" id="p06-u076"><p>Mục đích duy nhất của hash table là đóng vai trò một cấu trúc tạm thời trong memory, để tránh phải truy cập table <code class="id">EMPLOYEE</code> nhiều lần. Ngay từ đầu, hash table được load một lần là xong, nên không cần index để lấy từng record một cách hiệu quả. Predicate information xác nhận không có một filter nào được áp dụng trên table <code class="id">EMPLOYEES</code> (plan id 2). Query không có independent predicate nào trên table này.</p></div>
+<aside class="callout important "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5L10 13.9 5.5 16.3l.9-5L2.8 7.8l5-.7z" stroke-linejoin="round"/></svg><span>Quan trọng</span></p><p>Indexing join predicate không cải thiện performance của hash join.</p></aside>
+<div class="para" id="p06-u078"><p>Điều này không có nghĩa là không thể đánh index cho hash join. Các independent predicate vẫn có thể được index. Đó là những điều kiện được áp dụng trong một trong hai table access operation. Trong ví dụ trên, đó là filter trên <code class="id">SALE_DATE</code>.</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>CREATE INDEX sales_date ON sales (sale_date);</code></pre></div>
-<div class="para" id="p06-u080"><p>Execution plan sau dùng index này. Tuy nhiên, nó vẫn dùng full table scan cho table <code class="id">EMPLOYEES</code> vì query không có independent <code class="kw">where</code> predicate trên <code class="id">EMPLOYEES</code>.</p></div>
+<div class="para" id="p06-u080"><p>Execution plan sau dùng index này. Tuy nhiên, plan này vẫn dùng full table scan cho table <code class="id">EMPLOYEES</code>, vì query không có independent <code class="kw">where</code> predicate nào trên <code class="id">EMPLOYEES</code>.</p></div>
 <div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
 | Id | Operation                    | Name      | Bytes| Cost|
 --------------------------------------------------------------
@@ -307,18 +308,18 @@ Predicate Information (identified by operation id):
           AND "S"."EMPLOYEE_ID" ="E"."EMPLOYEE_ID" )
    4 - access("S"."SALE_DATE" &gt; TRUNC(SYSDATE@!)
                            -INTERVAL'+00-06' YEAR(2) TO MONTH)</code></pre></div>
-<div class="para" id="p06-u083"><p>Indexing hash join là symmetric — trái ngược với nested loops join. Nghĩa là join order không ảnh hưởng đến indexing. Index <code class="id">SALES_DATE</code> vẫn có thể được dùng để load hash table nếu đảo ngược join order.</p></div>
-<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Note</span></p><p>Indexing hash join độc lập với join order.</p></aside>
-<div class="para" id="p06-u085"><p>Một approach khá khác để tối ưu hash join performance là minimize kích thước hash table. Cách này hiệu quả vì hash join tối ưu chỉ có thể xảy ra khi toàn bộ hash table vừa trong memory. Vì vậy optimizer sẽ tự động dùng phía nhỏ hơn của join làm hash table. Oracle execution plan hiển thị memory requirement được estimate trong column “Bytes”. Trong execution plan ở trên, table <code class="id">EMPLOYEES</code> cần chín megabyte nên là phía nhỏ hơn.</p></div>
-<div class="para" id="p06-u086"><p>Cũng có thể giảm kích thước hash table bằng cách thay đổi SQL query, chẳng hạn thêm condition để database load ít candidate record hơn vào hash table. Tiếp tục ví dụ trên, điều đó có nghĩa thêm filter trên attribute <code class="id">DEPARTMENT</code> để chỉ xét sales staff. Cách này cải thiện hash join performance ngay cả khi không có index trên attribute <code class="id">DEPARTMENT</code>, vì database không cần lưu những employee không thể có sale vào hash table. Khi làm vậy, bạn phải chắc chắn không có <code class="id">SALES</code> record nào thuộc employee không làm việc trong department tương ứng. Hãy dùng constraint để bảo vệ các assumption.</p></div>
-<div class="para" id="p06-u088"><p>Khi minimize kích thước hash table, factor quan trọng không phải số row mà là memory footprint. Thực tế, cũng có thể giảm kích thước hash table bằng cách select ít column hơn — chỉ những attribute thực sự cần:</p></div>
+<div class="para" id="p06-u083"><p>Khác với nested loops join, việc đánh index cho hash join có tính đối xứng (symmetric). Nghĩa là join order không ảnh hưởng đến cách đánh index. Nếu đảo ngược join order, index <code class="id">SALES_DATE</code> vẫn có thể được dùng để load hash table.</p></div>
+<aside class="callout note "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6v.01" stroke-linecap="round"/></svg><span>Lưu ý</span></p><p>Cách đánh index cho hash join không phụ thuộc vào join order.</p></aside>
+<div class="para" id="p06-u085"><p>Một cách tiếp cận khá khác để tối ưu performance của hash join là giảm tối đa kích thước hash table. Cách này hiệu quả vì hash join chỉ đạt mức tối ưu khi toàn bộ hash table nằm vừa trong memory. Vì vậy, optimizer sẽ tự động dùng phía nhỏ hơn của join để làm hash table. Execution plan của Oracle hiển thị lượng memory ước tính cần dùng trong column “Bytes”. Trong execution plan ở trên, table <code class="id">EMPLOYEES</code> cần chín megabyte nên là phía nhỏ hơn.</p></div>
+<div class="para" id="p06-u086"><p>Cũng có thể giảm kích thước hash table bằng cách thay đổi SQL query, chẳng hạn thêm điều kiện để database load ít candidate record hơn vào hash table. Với ví dụ trên, cách này nghĩa là thêm một filter trên attribute <code class="id">DEPARTMENT</code> để chỉ xét nhân viên sales. Cách này cải thiện performance của hash join ngay cả khi không có index trên attribute <code class="id">DEPARTMENT</code>, vì database không cần lưu vào hash table những employee không thể có sale. Khi làm vậy, bạn phải chắc chắn rằng không có record <code class="id">SALES</code> nào thuộc về employee không làm việc trong department tương ứng. Hãy dùng constraint để bảo vệ các giả định của bạn.</p></div>
+<div class="para" id="p06-u088"><p>Khi giảm kích thước hash table, yếu tố cần quan tâm không phải là số row mà là memory footprint. Thực ra, cũng có thể giảm kích thước hash table bằng cách select ít column hơn — chỉ những attribute bạn thực sự cần:</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>SELECT s.sale_date, s.eur_value
      , e.last_name, e.first_name
   FROM sales s
   JOIN employees e ON (s.subsidiary_id = e.subsidiary_id
                   AND s.employee_id = e.employee_id )
  WHERE s.sale_date &gt; trunc(sysdate) - INTERVAL '6' MONTH</code></pre></div>
-<div class="para" id="p06-u090"><p>Cách này hiếm khi tạo bug vì bỏ nhầm column có lẽ sẽ nhanh chóng dẫn đến error message. Tuy nhiên, vẫn có thể cắt giảm đáng kể kích thước hash table; trong trường hợp này từ 9 megabyte xuống 234 kilobytes — giảm 97%.</p></div>
+<div class="para" id="p06-u090"><p>Cách này hiếm khi gây bug, vì nếu bỏ nhầm column thì nhiều khả năng bạn sẽ sớm nhận được error message. Dù vậy, cách này vẫn có thể giảm đáng kể kích thước hash table: trong trường hợp này là từ 9 megabyte xuống còn 234 kilobyte — giảm 97%.</p></div>
 <div class="code plan"><span class="label">Execution plan</span><pre><code>--------------------------------------------------------------
 | Id | Operation                    | Name      | Bytes| Cost|
 --------------------------------------------------------------
@@ -328,31 +329,31 @@ Predicate Information (identified by operation id):
 | 3 |    TABLE ACCESS BY INDEX ROWID| SALES     | 913K| 1724|
 |* 4 |    INDEX RANGE SCAN          | SALES_DATE|      | 133|
 --------------------------------------------------------------</code></pre></div>
-<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tip</span></p><p>Select ít column hơn để cải thiện hash join performance.</p></aside>
-<div class="para" id="p06-u093"><p>Thoạt nhìn, việc bỏ vài column khỏi SQL statement có vẻ đơn giản, nhưng đây là thách thức thực sự khi dùng object-relational mapping (<code class="id">ORM</code>) tool. Support cho cái gọi là partial object rất hạn chế. Các ví dụ sau cho thấy một số khả năng.</p></div>
+<aside class="callout tip "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 14h6M8 17h4M10 2.5a5 5 0 0 0-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 0 0-3-9z" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Mẹo</span></p><p>Select ít column hơn để cải thiện hash join performance.</p></aside>
+<div class="para" id="p06-u093"><p>Thoạt nhìn, bỏ vài column khỏi SQL statement có vẻ đơn giản, nhưng đây lại là một thách thức thực sự khi dùng object-relational mapping (<code class="id">ORM</code>) tool. Khả năng hỗ trợ cái gọi là partial object còn rất hạn chế. Các ví dụ sau cho thấy một vài cách có thể làm.</p></div>
 <h4 id="p06-u094">Java<a class="anchor" href="#p06-u094" aria-label="Liên kết">#</a></h4>
-<div class="para" id="p06-u095"><p><code class="id">JPA</code> định nghĩa FetchType.<code class="id">LAZY</code> trong annotation @Basic. Nó có thể được áp dụng ở property level:</p></div>
+<div class="para" id="p06-u095"><p><code class="id">JPA</code> định nghĩa FetchType.<code class="id">LAZY</code> trong annotation @Basic. Thiết lập này có thể được áp dụng ở mức property:</p></div>
 <div class="code "><pre><code>@Column(name="junk")
 @Basic(fetch=FetchType.LAZY)
 private String junk;</code></pre></div>
-<div class="para" id="p06-u098"><p><code class="id">JPA</code> provider được tự do ignore nó:</p></div>
-<blockquote><p><code class="id">LAZY</code> strategy là một hint cho persistence provider runtime rằng data nên được fetch lazily khi lần đầu được access. Implementation được phép eagerly fetch data mà <code class="id">LAZY</code> strategy hint đã được chỉ định.</p>
+<div class="para" id="p06-u098"><p><code class="id">JPA</code> provider được phép bỏ qua thiết lập này:</p></div>
+<blockquote><p><code class="id">LAZY</code> strategy là một hint cho persistence provider runtime rằng dữ liệu nên được fetch lazily khi được truy cập lần đầu. Implementation được phép eagerly fetch cả những dữ liệu đã được chỉ định <code class="id">LAZY</code> strategy hint.</p>
 <p>—<code class="id">EJB</code> 3.0 <code class="id">JPA</code>, paragraph 9.1.18</p></blockquote>
-<div class="para" id="p06-u100"><p>Hibernate 3.6 implement lazy property fetching thông qua compile-time bytecode instrumentation. Instrumentation thêm code vào các compiled class và không fetch <code class="id">LAZY</code> property cho đến khi property được access. Approach này hoàn toàn transparent với application, nhưng mở ra một dimension mới của N+1 problem: một select cho mỗi record và property. Điều này đặc biệt nguy hiểm vì <code class="id">JPA</code> không cung cấp runtime control để eager fetch khi cần.</p></div>
+<div class="para" id="p06-u100"><p>Hibernate 3.6 implement lazy property fetching bằng bytecode instrumentation lúc compile. Instrumentation thêm code vào các compiled class để không fetch các <code class="id">LAZY</code> property cho đến khi chúng được truy cập. Cách tiếp cận này hoàn toàn transparent với application, nhưng lại mở ra một chiều mới của N+1 problem: một select cho mỗi record và mỗi property. Điều này đặc biệt nguy hiểm vì <code class="id">JPA</code> không cung cấp cách kiểm soát tại runtime để eager fetch khi cần.</p></div>
 <div class="para" id="p06-u101"><p>Native query language <code class="id">HQL</code> của Hibernate giải quyết vấn đề bằng clause <code class="id">FETCH ALL PROPERTIES</code>:</p></div>
 <div class="code "><pre><code>select s from Sales s FETCH ALL PROPERTIES
  inner join fetch s.employee e FETCH ALL PROPERTIES
  where s.saleDate &gt;:dt</code></pre></div>
 <div class="para" id="p06-u103"><p>Clause <code class="id">FETCH ALL PROPERTIES</code> buộc Hibernate eager fetch entity — ngay cả khi dùng instrumented code và <code class="id">LAZY</code> annotation.</p></div>
-<div class="para" id="p06-u104"><p>Một option khác để chỉ load các column được chọn là dùng data transport object (<code class="id">DTO</code>) thay cho entity. Method này hoạt động giống nhau trong <code class="id">HQL</code> và <code class="id">JPQL</code>, tức là initialize một object ngay trong query:</p></div>
+<div class="para" id="p06-u104"><p>Một lựa chọn khác để chỉ load những column được chọn là dùng data transport object (<code class="id">DTO</code>) thay cho entity. Cách này hoạt động giống nhau trong <code class="id">HQL</code> và <code class="id">JPQL</code>: bạn khởi tạo object ngay trong query:</p></div>
 <div class="code "><pre><code>select new SalesHeadDTO(s.saleDate , s.eurValue
                         ,e.firstName, e.lastName)
   from Sales s
   join s.employee e
  where s.saleDate &gt; :dt</code></pre></div>
-<div class="para" id="p06-u106"><p>Query chỉ select data được yêu cầu và trả về object SalesHeadDTO — một Java object đơn giản (<code class="id">POJO</code>), không phải entity.</p></div>
+<div class="para" id="p06-u106"><p>Query chỉ select dữ liệu được yêu cầu và trả về object SalesHeadDTO — một Java object đơn giản (<code class="id">POJO</code>), không phải entity.</p></div>
 <h4 id="p06-u108">Perl<a class="anchor" href="#p06-u108" aria-label="Liên kết">#</a></h4>
-<div class="para" id="p06-u109"><p>Framework DBIx::Class không đóng vai trò entity manager nên inheritance không gây ra vấn đề aliasing.¹ Cookbook hỗ trợ approach này. Schema definition sau định nghĩa class Sales ở hai level:</p></div>
+<div class="para" id="p06-u109"><p>Framework DBIx::Class không đóng vai trò entity manager, nên inheritance không gây ra vấn đề aliasing.¹ Cookbook của framework này cũng hỗ trợ cách tiếp cận này. Schema definition sau định nghĩa class Sales ở hai mức:</p></div>
 <div class="code "><pre><code>package UseTheIndexLuke::Schema::Result::SalesHead;
 use base qw/DBIx::Class::Core/;
 __PACKAGE__-&gt;table('sales');
@@ -367,8 +368,8 @@ package UseTheIndexLuke::Schema::Result::Sales;
 use base qw/UseTheIndexLuke::Schema::Result::SalesHead/;
 __PACKAGE__-&gt;table('sales');
 __PACKAGE__-&gt;add_columns(qw/junk/);</code></pre></div>
-<div class="para" id="p06-u111"><p>Class Sales được derived từ class SalesHead và bổ sung attribute còn thiếu. Bạn có thể dùng cả hai class tùy nhu cầu. Lưu ý rằng table setup cũng bắt buộc phải có trong derived class.</p></div>
-<div class="para" id="p06-u112"><p>Bạn có thể fetch toàn bộ employee detail bằng prefetch hoặc chỉ các column được chọn như dưới đây:</p></div>
+<div class="para" id="p06-u111"><p>Class Sales kế thừa từ class SalesHead và bổ sung attribute còn thiếu. Bạn có thể dùng cả hai class tùy nhu cầu. Lưu ý rằng derived class cũng bắt buộc phải có phần table setup.</p></div>
+<div class="para" id="p06-u112"><p>Bạn có thể fetch toàn bộ thông tin chi tiết của employee bằng prefetch, hoặc chỉ fetch các column được chọn như dưới đây:</p></div>
 <div class="code "><pre><code>my @sales =
    $schema-&gt;resultset('SalesHead')
           -&gt;search($cond
@@ -380,7 +381,7 @@ __PACKAGE__-&gt;add_columns(qw/junk/);</code></pre></div>
 <div class="para" id="p06-u114"><p>Không thể chỉ load các column được chọn từ root table — trong trường hợp này là SalesHead.</p></div>
 <div class="footnotes"><p>1</p></div>
 <div class="footnotes"><p><a href="http://en.wikipedia.org/wiki/Aliasing_%28computing%29">http://en.wikipedia.org/wiki/Aliasing_%28computing%29</a></p></div>
-<div class="para" id="p06-u118"><p>DBIx::Class 0.08192 generate SQL sau. Nó fetch toàn bộ column từ table <code class="id">SALES</code> và các attribute được chọn từ <code class="id">EMPLOYEES</code>:</p></div>
+<div class="para" id="p06-u118"><p>DBIx::Class 0.08192 sinh ra SQL sau. Query này lấy toàn bộ column của table <code class="id">SALES</code> cùng các attribute được chọn từ <code class="id">EMPLOYEES</code>:</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>SELECT me.sale_id,
        me.employee_id,
        me.subsidiary_id,
@@ -394,7 +395,7 @@ __PACKAGE__-&gt;add_columns(qw/junk/);</code></pre></div>
        AND employee.subsidiary_id = me.subsidiary_id)
  WHERE(sale_date &gt; ?)</code></pre></div>
 <h4 id="p06-u120"><code class="id">PHP</code><a class="anchor" href="#p06-u120" aria-label="Liên kết">#</a></h4>
-<div class="para" id="p06-u121"><p>Version 2 của framework Doctrine hỗ trợ attribute selection tại runtime. Documentation nói rằng partially loaded object có thể behave oddly và yêu cầu dùng keyword partial để acknowledge risk. Ngoài ra, bạn phải select rõ các primary key column:</p></div>
+<div class="para" id="p06-u121"><p>Version 2 của framework Doctrine hỗ trợ chọn attribute tại runtime. Documentation cho biết các partially loaded object có thể hoạt động bất thường, và yêu cầu dùng keyword partial để xác nhận bạn chấp nhận các rủi ro đó. Ngoài ra, bạn phải select tường minh các primary key column:</p></div>
 <div class="code "><pre><code>$qb = $em-&gt;createQueryBuilder();
 $qb-&gt;select('partial s.{sale_id, sale_date, eur_value},'
           . 'partial e.{employee_id, subsidiary_id, '
@@ -403,7 +404,7 @@ $qb-&gt;select('partial s.{sale_id, sale_date, eur_value},'
    -&gt;join('s.employee', 'e')
    -&gt;where("s.sale_date &gt; :dt")
    -&gt;setParameter('dt', $dt, Type::DATETIME);</code></pre></div>
-<div class="para" id="p06-u123"><p>SQL được generate chứa các column được yêu cầu và một lần nữa có <code class="id">SUBSIDIARY_ID</code> cùng <code class="id">EMPLOYEE_ID</code> từ table <code class="id">SALES</code>.</p></div>
+<div class="para" id="p06-u123"><p>SQL được sinh ra chứa các column được yêu cầu, và một lần nữa có thêm <code class="id">SUBSIDIARY_ID</code> cùng <code class="id">EMPLOYEE_ID</code> từ table <code class="id">SALES</code>.</p></div>
 <div class="code sql"><span class="label">SQL</span><pre><code>SELECT s0_.sale_id        AS sale_id0,
        s0_.sale_date      AS sale_date1,
        s0_.eur_value      AS eur_value2,
@@ -418,14 +419,14 @@ $qb-&gt;select('partial s.{sale_id, sale_date, eur_value},'
          ON s0_.subsidiary_id = e1_.subsidiary_id
         AND s0_.employee_id = e1_.employee_id
  WHERE s0_.sale_date &gt; ?</code></pre></div>
-<div class="para" id="p06-u125"><p>Các object được trả về tương thích với object đã load đầy đủ, nhưng các column thiếu vẫn ở trạng thái chưa initialize. Access chúng không trigger exception.</p></div>
-<aside class="callout warning "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Warning</span></p><p>MySQL hoàn toàn không support hash join (feature request #59025).</p></aside>
+<div class="para" id="p06-u125"><p>Các object được trả về tương thích với object đã load đầy đủ, nhưng các column bị thiếu vẫn ở trạng thái chưa được khởi tạo. Truy cập vào các column này cũng không gây ra exception.</p></div>
+<aside class="callout warning "><p class="title"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2.8L18 16.5H2z" stroke-linejoin="round"/><path d="M10 8v4M10 14.2v.01" stroke-linecap="round"/></svg><span>Cảnh báo</span></p><p>MySQL hoàn toàn không hỗ trợ hash join (feature request #59025).</p></aside>
 <h2 id="p06-u128">Sort Merge<a class="anchor" href="#p06-u128" aria-label="Liên kết">#</a></h2>
-<div class="para" id="p06-u130"><p>Sort-merge join kết hợp hai sorted list giống như một zipper. Cả hai phía của join đều phải được sort theo join predicate.</p></div>
+<div class="para" id="p06-u130"><p>Sort-merge join ghép hai danh sách đã sort lại với nhau, giống như một chiếc khóa kéo (zipper). Cả hai phía của join đều phải được sort theo join predicate.</p></div>
 <div class="para" id="p06-u131"><p>Sort-merge join cần cùng loại index như hash join, tức là index cho các independent condition để đọc toàn bộ candidate record trong một lần.</p></div>
-<div class="para" id="p06-u132"><p>Indexing join predicate là vô ích. Cho đến đây, mọi thứ giống hash join. Tuy nhiên, sort-merge join có một đặc tính riêng: symmetry tuyệt đối. Join order không tạo khác biệt — kể cả về performance. Tính chất này đặc biệt hữu ích cho outer join. Với các algorithm khác, hướng của outer join (left hay right) quyết định join order — nhưng không phải với sort-merge join. Sort-merge join thậm chí có thể thực hiện left và right outer join cùng lúc — cái gọi là full outer join.</p></div>
-<div class="para" id="p06-u133"><p>Dù sort-merge join hoạt động rất tốt khi input đã được sort, nó hiếm khi được dùng vì sort cả hai phía rất tốn kém. Ngược lại, hash join chỉ cần preprocess một phía.</p></div>
-<div class="para" id="p06-u134"><p>Điểm mạnh của sort-merge join xuất hiện khi input đã được sort sẵn. Có thể đạt điều này bằng cách khai thác thứ tự của index để tránh hoàn toàn các sort operation. Chapter 6, “Sorting and Grouping”, giải thích chi tiết concept này.</p></div>
+<div class="para" id="p06-u132"><p>Đánh index cho join predicate là vô ích. Cho đến đây, mọi thứ đều giống hệt hash join. Tuy nhiên, sort-merge join có một đặc điểm riêng: tính đối xứng tuyệt đối. Join order không tạo ra khác biệt nào — kể cả về performance. Tính chất này rất hữu ích cho outer join. Với các algorithm khác, hướng của outer join (left hay right) quyết định join order — nhưng với sort-merge join thì không. Sort-merge join thậm chí có thể thực hiện left và right outer join cùng lúc — cái gọi là full outer join.</p></div>
+<div class="para" id="p06-u133"><p>Sort-merge join hoạt động rất tốt khi các input đã được sort, nhưng nó hiếm khi được dùng vì sort cả hai phía rất tốn kém. Ngược lại, hash join chỉ cần xử lý trước một phía.</p></div>
+<div class="para" id="p06-u134"><p>Điểm mạnh của sort-merge join thể hiện rõ khi các input đã được sort sẵn. Có thể đạt được điều này bằng cách tận dụng thứ tự của index để tránh hoàn toàn các sort operation. Chapter 6, “Sorting and Grouping”, giải thích chi tiết concept này.</p></div>
 <div class="para" id="p06-u135"><p>Dù vậy, hash join algorithm vẫn vượt trội trong nhiều trường hợp.</p></div>
 </div>
 <nav class="pager"><a class="prev" href="chap_03.html"><small>← Trước</small>Chương 3 — Performance và Scalability</a><a class="next" href="chap_05.html"><small>Sau →</small>Chương 5 — Clustering Data</a></nav>
